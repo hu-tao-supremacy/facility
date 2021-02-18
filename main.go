@@ -4,30 +4,31 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"net"
 	"os"
-	"google.golang.org/grpc"
+
 	"github.com/jmoiron/sqlx"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	facility "onepass.app/facility/hts/facility"
-	
+
 	_ "github.com/lib/pq"
 )
 
-// DataService is very gppd
+// DataService is for handling data layer
 type DataService struct {
 	sql *sqlx.DB
 }
 
-// FacilityServer is very gppd
+// FacilityServer is for handling facility endpoint 
 type FacilityServer struct {
 	facility.UnimplementedFacilityServiceServer
 	dataService *DataService
 }
 
 
-// GetFacilityList is a function that is VERY GOOD
+// GetFacilityList is a function to list all facilities owned by organization
 func (fs *FacilityServer) GetFacilityList(ctx context.Context, in *facility.GetFacilityListRequest) (*facility.GetFacilityListResponse, error) {
 	list := make([]*facility.Facility, 1)
 	fmt.Println("emp:", list)
@@ -37,8 +38,7 @@ func (fs *FacilityServer) GetFacilityList(ctx context.Context, in *facility.GetF
 	}, nil
 }
 
-// ConnectToDB is very good
-func (dbs *DataService) ConnectToDB() {
+func (dbs *DataService) connectToDB() {
 	host := os.Getenv("POSTGRES_HOST")
 	user := os.Getenv("POSTGRES_USER")
 	password := os.Getenv("POSTGRES_PASSWORD")
@@ -75,14 +75,14 @@ func main() {
 	
 	facilityServer := &FacilityServer{}
 	db := &DataService{}
-	db.ConnectToDB()
+	db.connectToDB()
 	facilityServer.dataService = db
 	
 	version, err := facilityServer.ping()
 	if err == nil {
 		log.Println("SQL version:", version)
 	}
-	
+
 	facility.RegisterFacilityServiceServer(s, facilityServer)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
