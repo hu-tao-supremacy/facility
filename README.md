@@ -20,3 +20,8 @@ code .
 ```
 go run main.go
 ```
+
+## WSL2 guide
+- make sure you have setup docker desktop with connection to wsl2
+- for connecting with wls2's grpc port  from windows
+    - run `wsl hostname -I` to find wsl2 ip address
