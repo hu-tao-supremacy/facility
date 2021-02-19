@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net"
 
@@ -11,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
 	database "onepass.app/facility/internal/database"
 
@@ -60,6 +62,24 @@ func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetF
 		return nil, status.Error(codes.Internal, err.Error())
 	default:
 		return result, nil
+	}
+}
+
+// RejectFacilityRequest is a function to reject facility’s request by id
+func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facility.RejectFacilityRequestRequest) (*common.Result, error) {
+	err := fs.dbs.RejectFacilityRequest(in.RequestId, in.Reason)
+
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, status.Error(codes.NotFound, err.Error())
+	case err != nil:
+		return nil, status.Error(codes.Internal, err.Error())
+	default:
+		description := fmt.Sprintf("Request ID: %d has been rejected", in.RequestId)
+		return &common.Result{
+			IsOk:        true,
+			Description: description,
+		}, nil
 	}
 }
 

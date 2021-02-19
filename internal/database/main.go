@@ -1,6 +1,7 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -56,6 +57,28 @@ func (dbs *DataService) GetFacilityInfo(facilityID int64) (*facility.Facility, e
 	}
 
 	return &_facility, nil
+}
+
+// RejectFacilityRequest is a function to reject facility’s request by id
+func (dbs *DataService) RejectFacilityRequest(requestID int64, reason string) error {
+	query := "UPDATE facility_request SET status=:status WHERE facility_request.id = :id"
+	result, err := dbs.SQL.NamedExec(query, map[string]interface{}{
+		"id":     requestID,
+		"status": "REJECTED",
+	})
+	if err != nil {
+		return err
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 func (dbs *DataService) ping() (string, error) {
