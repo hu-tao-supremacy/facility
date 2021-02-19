@@ -7,10 +7,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/jmoiron/sqlx/reflectx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	facility "onepass.app/facility/hts/facility"
+	typing "onepass.app/facility/internal/typing"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -21,64 +24,158 @@ type DataService struct {
 }
 
 // GetFacilityList is a function to get facility list owned by the organization from database
-func (dbs *DataService) GetFacilityList(organizationID int64) ([]*facility.Facility, error) {
+func (dbs *DataService) GetFacilityList(organizationID int64) ([]*facility.Facility, *typing.DatabaseError) {
 	var facilities []*facility.Facility
 	query := fmt.Sprintf("SELECT * FROM facility WHERE facility.organization_id = %d;", organizationID)
 	err := dbs.SQL.Select(&facilities, query)
 
 	if err != nil {
-		return nil, err
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
 	}
 
 	return facilities, nil
 }
 
 // GetAvailableFacilityList is a function to list all available facilities
-func (dbs *DataService) GetAvailableFacilityList() ([]*facility.Facility, error) {
+func (dbs *DataService) GetAvailableFacilityList() ([]*facility.Facility, *typing.DatabaseError) {
 	var facilities []*facility.Facility
 	query := "SELECT * FROM facility"
 	err := dbs.SQL.Select(&facilities, query)
 
 	if err != nil {
-		return nil, err
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
 	}
 
 	return facilities, nil
 }
 
 // GetFacilityInfo is a function to get facility’s information by id
-func (dbs *DataService) GetFacilityInfo(facilityID int64) (*facility.Facility, error) {
+func (dbs *DataService) GetFacilityInfo(facilityID int64) (*facility.Facility, *typing.DatabaseError) {
 	var _facility facility.Facility
 	query := fmt.Sprintf("SELECT * FROM facility WHERE facility.id = %d", facilityID)
 	err := dbs.SQL.Get(&_facility, query)
 
-	if err != nil {
-		return nil, err
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, &typing.DatabaseError{
+			Err:        &typing.NotFoundError{Name: "facility"},
+			StatusCode: codes.NotFound,
+		}
+	case err != nil:
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	default:
+		return &_facility, nil
 	}
 
-	return &_facility, nil
 }
 
+// add reason
+
 // RejectFacilityRequest is a function to reject facility’s request by id
-func (dbs *DataService) RejectFacilityRequest(requestID int64, reason string) error {
+func (dbs *DataService) RejectFacilityRequest(requestID int64, reason string) *typing.DatabaseError {
 	query := "UPDATE facility_request SET status=:status WHERE facility_request.id = :id"
 	result, err := dbs.SQL.NamedExec(query, map[string]interface{}{
 		"id":     requestID,
 		"status": "REJECTED",
 	})
 	if err != nil {
-		return err
+		return &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
 	}
 
 	count, err := result.RowsAffected()
-	if err != nil {
-		return err
+	switch {
+	case err != nil:
+		return &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	case count != 1:
+		return &typing.DatabaseError{
+			Err:        &typing.NotFoundError{Name: "FacilityRequest"},
+			StatusCode: codes.NotFound,
+		}
+	default:
+		return nil
 	}
-	if count != 1 {
-		return sql.ErrNoRows
+}
+
+// ApproveFacilityRequest is a function to approve facility request
+func (dbs *DataService) ApproveFacilityRequest(requestID int64) *typing.DatabaseError {
+	query := "UPDATE facility_request SET status=:status WHERE facility_request.id = :id"
+	result, err := dbs.SQL.NamedExec(query, map[string]interface{}{
+		"id":     requestID,
+		"status": "APPROVED",
+	})
+	if err != nil {
+		return &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
 	}
 
-	return nil
+	count, err := result.RowsAffected()
+	switch {
+	case err != nil:
+		return &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	case count != 1:
+		return &typing.DatabaseError{
+			Err:        &typing.NotFoundError{Name: "FacilityRequest"},
+			StatusCode: codes.NotFound,
+		}
+	default:
+		return nil
+	}
+}
+
+// CreateFacilityRequest is a function to create facilityRequest
+func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (*facility.FacilityRequest, *typing.DatabaseError) {
+	var id int64
+	query := "INSERT INTO facility_request (event_id, facility_id, status, start, finish) VALUES (:event_id, :facility_id, :status, :start, :finish) RETURNING id"
+	startTime, _ := ptypes.Timestamp(start)
+	finishTime, _ := ptypes.Timestamp(finish)
+	rows, err := dbs.SQL.NamedQuery(query, map[string]interface{}{
+		"event_id":    eventID,
+		"facility_id": facilityID,
+		"status":      "PENDING",
+		"start":       startTime,
+		"finish":      finishTime,
+	})
+	if rows.Next() {
+		rows.Scan(&id)
+	}
+
+	if err != nil {
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	}
+
+	result := facility.FacilityRequest{
+		Id:         id,
+		EventId:    eventID,
+		FacilityId: facilityID,
+		Status:     facility.RequestStatus_PENDING,
+		Start:      start,
+		Finish:     finish,
+	}
+
+	return &result, nil
 }
 
 func (dbs *DataService) ping() (string, error) {

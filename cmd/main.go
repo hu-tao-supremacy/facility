@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"net"
@@ -10,7 +9,6 @@ import (
 	empty "github.com/golang/protobuf/ptypes/empty"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
@@ -30,7 +28,7 @@ func (fs *FacilityServer) GetFacilityList(ctx context.Context, in *facility.GetF
 	list, err := fs.dbs.GetFacilityList(in.OrganizationId)
 
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(err.StatusCode, err.Error())
 	}
 
 	return &facility.GetFacilityListResponse{
@@ -43,7 +41,7 @@ func (fs *FacilityServer) GetAvailableFacilityList(ctx context.Context, in *empt
 	list, err := fs.dbs.GetAvailableFacilityList()
 
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(err.StatusCode, err.Error())
 	}
 
 	return &facility.GetAvailableFacilityListResponse{
@@ -55,32 +53,37 @@ func (fs *FacilityServer) GetAvailableFacilityList(ctx context.Context, in *empt
 func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetFacilityInfoRequest) (*facility.Facility, error) {
 	result, err := fs.dbs.GetFacilityInfo(in.FacilityId)
 
-	switch {
-	case err == sql.ErrNoRows:
-		return nil, status.Error(codes.NotFound, err.Error())
-	case err != nil:
-		return nil, status.Error(codes.Internal, err.Error())
-	default:
-		return result, nil
+	if err != nil {
+		return nil, status.Error(err.StatusCode, err.Error())
 	}
+
+	return result, nil
 }
 
 // RejectFacilityRequest is a function to reject facility’s request by id
 func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facility.RejectFacilityRequestRequest) (*common.Result, error) {
 	err := fs.dbs.RejectFacilityRequest(in.RequestId, in.Reason)
 
-	switch {
-	case err == sql.ErrNoRows:
-		return nil, status.Error(codes.NotFound, err.Error())
-	case err != nil:
-		return nil, status.Error(codes.Internal, err.Error())
-	default:
-		description := fmt.Sprintf("Request ID: %d has been rejected", in.RequestId)
-		return &common.Result{
-			IsOk:        true,
-			Description: description,
-		}, nil
+	if err != nil {
+		return nil, status.Error(err.StatusCode, err.Error())
 	}
+
+	description := fmt.Sprintf("Request ID: %d has been rejected", in.RequestId)
+	return &common.Result{
+		IsOk:        true,
+		Description: description,
+	}, nil
+}
+
+// RequestFacilityRequest is a function to create facility’s request by id
+func (fs *FacilityServer) RequestFacilityRequest(ctx context.Context, in *facility.RequestFacilityRequestRequest) (*facility.FacilityRequest, error) {
+	result, err := fs.dbs.CreateFacilityRequest(in.EventId, in.FacilityId, in.Start, in.End)
+
+	if err != nil {
+		return nil, status.Error(err.StatusCode, err.Error())
+	}
+
+	return result, nil
 }
 
 func main() {
