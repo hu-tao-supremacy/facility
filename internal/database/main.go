@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/jmoiron/sqlx/reflectx"
@@ -13,8 +12,10 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	facility "onepass.app/facility/hts/facility"
+	model "onepass.app/facility/internal/model"
 	typing "onepass.app/facility/internal/typing"
 
+	"github.com/iancoleman/strcase"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -25,23 +26,29 @@ type DataService struct {
 
 // GetFacilityList is a function to get facility list owned by the organization from database
 func (dbs *DataService) GetFacilityList(organizationID int64) ([]*facility.Facility, *typing.DatabaseError) {
-	var facilities []*facility.Facility
+	var facilities []*model.Facility
 	query := fmt.Sprintf("SELECT * FROM facility WHERE facility.organization_id = %d;", organizationID)
 	err := dbs.SQL.Select(&facilities, query)
 
 	if err != nil {
+		log.Println(facilities, query, err)
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
 		}
 	}
 
-	return facilities, nil
+	result := make([]*facility.Facility, len(facilities))
+	for i, item := range facilities {
+		result[i] = convertFacilityModelToProto(item)
+	}
+
+	return result, nil
 }
 
 // GetAvailableFacilityList is a function to list all available facilities
 func (dbs *DataService) GetAvailableFacilityList() ([]*facility.Facility, *typing.DatabaseError) {
-	var facilities []*facility.Facility
+	var facilities []*model.Facility
 	query := "SELECT * FROM facility"
 	err := dbs.SQL.Select(&facilities, query)
 
@@ -52,12 +59,17 @@ func (dbs *DataService) GetAvailableFacilityList() ([]*facility.Facility, *typin
 		}
 	}
 
-	return facilities, nil
+	result := make([]*facility.Facility, len(facilities))
+	for i, item := range facilities {
+		result[i] = convertFacilityModelToProto(item)
+	}
+
+	return result, nil
 }
 
 // GetFacilityInfo is a function to get facility’s information by id
 func (dbs *DataService) GetFacilityInfo(facilityID int64) (*facility.Facility, *typing.DatabaseError) {
-	var _facility facility.Facility
+	var _facility model.Facility
 	query := fmt.Sprintf("SELECT * FROM facility WHERE facility.id = %d", facilityID)
 	err := dbs.SQL.Get(&_facility, query)
 
@@ -73,7 +85,7 @@ func (dbs *DataService) GetFacilityInfo(facilityID int64) (*facility.Facility, *
 			StatusCode: codes.Internal,
 		}
 	default:
-		return &_facility, nil
+		return convertFacilityModelToProto(&_facility), nil
 	}
 
 }
@@ -204,7 +216,8 @@ func (dbs *DataService) ConnectToDB() {
 		log.Fatalln(err)
 	}
 
-	db.Mapper = reflectx.NewMapperFunc("json", strings.ToLower)
+	strcase.ConfigureAcronym("ID", "id")
+	db.Mapper = reflectx.NewMapperFunc("json", strcase.ToSnake)
 	dbs.SQL = db
 	version, err := dbs.ping()
 	if err == nil {

@@ -75,8 +75,8 @@ func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facilit
 	}, nil
 }
 
-// RequestFacilityRequest is a function to create facility’s request by id
-func (fs *FacilityServer) RequestFacilityRequest(ctx context.Context, in *facility.RequestFacilityRequestRequest) (*facility.FacilityRequest, error) {
+// CreateFacilityRequest is a function to create facility’s request by id
+func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facility.CreateFacilityRequestRequest) (*facility.FacilityRequest, error) {
 	result, err := fs.dbs.CreateFacilityRequest(in.EventId, in.FacilityId, in.Start, in.End)
 
 	if err != nil {
