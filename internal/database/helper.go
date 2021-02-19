@@ -1,8 +1,6 @@
 package database
 
 import (
-	"strings"
-
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	facility "onepass.app/facility/hts/facility"
 	model "onepass.app/facility/internal/model"
