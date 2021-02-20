@@ -21,6 +21,16 @@ code .
 go run ./cmd/*.go
 ```
 
+## Build binary file
+1. Run go build command
+```
+go build -o main ./cmd/*.go
+```
+2. Execute binary file
+```
+./main
+```
+
 ## WSL2 guide
 - make sure you have setup docker desktop and connected to wsl2
 - for connecting with wls2's grpc port  from windows
