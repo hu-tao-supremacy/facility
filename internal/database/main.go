@@ -28,7 +28,11 @@ type DataService struct {
 // GetFacilityList is a function to get facility list owned by the organization from database
 func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facility, *typing.DatabaseError) {
 	var facilities []*model.Facility
-	query := fmt.Sprintf("SELECT * FROM facility WHERE facility.organization_id = %d;", organizationID)
+	query := fmt.Sprintf(`
+	SELECT * 
+	FROM facility 
+	WHERE facility.organization_id = %d;`,
+		organizationID)
 	err := dbs.SQL.Select(&facilities, query)
 
 	if err != nil {
@@ -49,7 +53,9 @@ func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facilit
 // GetAvailableFacilityList is a function to list all available facilities
 func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, *typing.DatabaseError) {
 	var facilities []*model.Facility
-	query := "SELECT * FROM facility"
+	query := `
+	SELECT * 
+	FROM facility`
 	err := dbs.SQL.Select(&facilities, query)
 
 	if err != nil {
@@ -70,7 +76,11 @@ func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, *typing.
 // GetFacilityInfo is a function to get facility’s information by id
 func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, *typing.DatabaseError) {
 	var _facility model.Facility
-	query := fmt.Sprintf("SELECT * FROM facility WHERE facility.id = %d", facilityID)
+	query := fmt.Sprintf(`
+	SELECT * 
+	FROM facility 
+	WHERE facility.id = %d`,
+		facilityID)
 	err := dbs.SQL.Get(&_facility, query)
 
 	switch {
@@ -95,7 +105,11 @@ func (dbs *DataService) updateFacilityRequest(requestID int64, status common.Sta
 		queryReason = ", reject_reason=:reason "
 	}
 
-	query := fmt.Sprintf("UPDATE facility_request SET status=:status%s WHERE facility_request.id = :id", queryReason)
+	query := fmt.Sprintf(`
+	UPDATE facility_request 
+	SET status=:status%s 
+	WHERE facility_request.id = :id`,
+		queryReason)
 	result, err := dbs.SQL.NamedExec(query, map[string]interface{}{
 		"id":     requestID,
 		"status": status.String(),
@@ -138,7 +152,10 @@ func (dbs *DataService) ApproveFacilityRequest(requestID int64) *typing.Database
 // CreateFacilityRequest is a function to create facilityRequest
 func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (*common.FacilityRequest, *typing.DatabaseError) {
 	var id int64
-	query := "INSERT INTO facility_request (event_id, facility_id, status, start, finish) VALUES (:event_id, :facility_id, :status, :start, :finish) RETURNING id"
+	query := `
+	INSERT INTO facility_request (event_id, facility_id, status, start, finish) 
+	VALUES (:event_id, :facility_id, :status, :start, :finish) 
+	RETURNING id`
 	startTime, _ := ptypes.Timestamp(start)
 	finishTime, _ := ptypes.Timestamp(finish)
 	rows, err := dbs.SQL.NamedQuery(query, map[string]interface{}{
@@ -180,7 +197,14 @@ func (dbs *DataService) IsOverLapTime(facilityID int64, start *timestamppb.Times
 	startTimeText := startTime.Format(layoutTime)
 	finishTimeText := finishTime.Format(layoutTime)
 
-	query := fmt.Sprintf("SELECT COUNT(*) FROM facility_request WHERE (('%s' >= start AND '%s' < finish) OR ('%s' > start AND '%s' <= finish)) AND facility_id = %d AND status='APPROVED' LIMIT 1;", startTimeText, startTimeText, finishTimeText, finishTimeText, facilityID)
+	query := fmt.Sprintf(`
+	SELECT COUNT(*) 
+	FROM facility_request 
+	WHERE (('%s' >= start AND '%s' < finish) OR ('%s' > start AND '%s' <= finish)) 
+	AND facility_id = %d 
+	AND status='APPROVED' 
+	LIMIT 1;`,
+		startTimeText, startTimeText, finishTimeText, finishTimeText, facilityID)
 	err := dbs.SQL.Get(&count, query)
 
 	if err != nil {
@@ -197,7 +221,12 @@ func (dbs *DataService) IsOverLapTime(facilityID int64, start *timestamppb.Times
 func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityRequest, *typing.DatabaseError) {
 	var facilityRequest model.FacilityRequest
 
-	query := fmt.Sprintf("SELECT * FROM facility_request WHERE id=%d LIMIT 1", RequestID)
+	query := fmt.Sprintf(`
+	SELECT * 
+	FROM facility_request 
+	WHERE id=%d 
+	LIMIT 1
+	`, RequestID)
 	err := dbs.SQL.Get(&facilityRequest, query)
 
 	if err != nil {
