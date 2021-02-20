@@ -119,12 +119,35 @@ func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facilit
 // CreateFacilityRequest is a function to create facility’s request by id
 func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facility.CreateFacilityRequestRequest) (*common.FacilityRequest, error) {
 	permssion := common.Permission_UPDATE_EVENT
-	isAbleToCreateRequest := hasPermission(in.UserId, in.OrganizationId, permssion)
-	if !isAbleToCreateRequest {
+	havingPermissionChannel := make(chan bool)
+	eventOwnerChannel := make(chan bool)
+	overlapTimeChannel := make(chan bool)
+	errorChannel := make(chan *typing.DatabaseError)
+	go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permssion) }()
+	go func() { eventOwnerChannel <- hasEvent(in.UserId, in.OrganizationId, in.EventId) }()
+	go func() {
+		isTimeOverlap, err := fs.dbs.IsOverLapTime(in.FacilityId, in.Start, in.End)
+		overlapTimeChannel <- isTimeOverlap
+		errorChannel <- err
+	}()
+
+	isPermission := <-havingPermissionChannel
+	isEventOwner := <-eventOwnerChannel
+	isTimeOverlap := <-overlapTimeChannel
+	overalpErr := <-errorChannel
+
+	close(havingPermissionChannel)
+	close(eventOwnerChannel)
+	close(overlapTimeChannel)
+	close(errorChannel)
+
+	if !(isPermission && isEventOwner) {
 		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permssion}).Error())
 	}
 
-	isTimeOverlap, err := fs.dbs.IsOverLapTime(in.FacilityId, in.Start, in.End)
+	if overalpErr != nil {
+		return nil, status.Error(codes.Internal, overalpErr.Error())
+	}
 	if isTimeOverlap {
 		return nil, status.Error(codes.AlreadyExists, (&typing.AlreadyExistError{Name: "Facility is booked at that time"}).Error())
 	}
