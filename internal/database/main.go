@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	facility "onepass.app/facility/hts/facility"
+	common "onepass.app/facility/hts/common"
 	model "onepass.app/facility/internal/model"
 	typing "onepass.app/facility/internal/typing"
 
@@ -26,7 +26,7 @@ type DataService struct {
 }
 
 // GetFacilityList is a function to get facility list owned by the organization from database
-func (dbs *DataService) GetFacilityList(organizationID int64) ([]*facility.Facility, *typing.DatabaseError) {
+func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facility, *typing.DatabaseError) {
 	var facilities []*model.Facility
 	query := fmt.Sprintf("SELECT * FROM facility WHERE facility.organization_id = %d;", organizationID)
 	err := dbs.SQL.Select(&facilities, query)
@@ -39,7 +39,7 @@ func (dbs *DataService) GetFacilityList(organizationID int64) ([]*facility.Facil
 		}
 	}
 
-	result := make([]*facility.Facility, len(facilities))
+	result := make([]*common.Facility, len(facilities))
 	for i, item := range facilities {
 		result[i] = convertFacilityModelToProto(item)
 	}
@@ -48,7 +48,7 @@ func (dbs *DataService) GetFacilityList(organizationID int64) ([]*facility.Facil
 }
 
 // GetAvailableFacilityList is a function to list all available facilities
-func (dbs *DataService) GetAvailableFacilityList() ([]*facility.Facility, *typing.DatabaseError) {
+func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, *typing.DatabaseError) {
 	var facilities []*model.Facility
 	query := "SELECT * FROM facility"
 	err := dbs.SQL.Select(&facilities, query)
@@ -60,7 +60,7 @@ func (dbs *DataService) GetAvailableFacilityList() ([]*facility.Facility, *typin
 		}
 	}
 
-	result := make([]*facility.Facility, len(facilities))
+	result := make([]*common.Facility, len(facilities))
 	for i, item := range facilities {
 		result[i] = convertFacilityModelToProto(item)
 	}
@@ -69,7 +69,7 @@ func (dbs *DataService) GetAvailableFacilityList() ([]*facility.Facility, *typin
 }
 
 // GetFacilityInfo is a function to get facility’s information by id
-func (dbs *DataService) GetFacilityInfo(facilityID int64) (*facility.Facility, *typing.DatabaseError) {
+func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, *typing.DatabaseError) {
 	var _facility model.Facility
 	query := fmt.Sprintf("SELECT * FROM facility WHERE facility.id = %d", facilityID)
 	err := dbs.SQL.Get(&_facility, query)
@@ -88,12 +88,9 @@ func (dbs *DataService) GetFacilityInfo(facilityID int64) (*facility.Facility, *
 	default:
 		return convertFacilityModelToProto(&_facility), nil
 	}
-
 }
 
-// add reason
-
-func (dbs *DataService) updateFacilityRequest(requestID int64, status facility.RequestStatus, reason *wrapperspb.StringValue) *typing.DatabaseError {
+func (dbs *DataService) updateFacilityRequest(requestID int64, status common.Status, reason *wrapperspb.StringValue) *typing.DatabaseError {
 	var query string
 	if reason != nil {
 		query = "UPDATE facility_request SET status=:status reason=:reason WHERE facility_request.id = :id"
@@ -131,16 +128,16 @@ func (dbs *DataService) updateFacilityRequest(requestID int64, status facility.R
 
 // RejectFacilityRequest is a function to reject facility’s request by id
 func (dbs *DataService) RejectFacilityRequest(requestID int64, reason *wrapperspb.StringValue) *typing.DatabaseError {
-	return dbs.updateFacilityRequest(requestID, facility.RequestStatus_REJECTED, reason)
+	return dbs.updateFacilityRequest(requestID, common.Status_REJECTED, reason)
 }
 
 // ApproveFacilityRequest is a function to approve facility request
 func (dbs *DataService) ApproveFacilityRequest(requestID int64) *typing.DatabaseError {
-	return dbs.updateFacilityRequest(requestID, facility.RequestStatus_APPROVED, nil)
+	return dbs.updateFacilityRequest(requestID, common.Status_APPROVED, nil)
 }
 
 // CreateFacilityRequest is a function to create facilityRequest
-func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (*facility.FacilityRequest, *typing.DatabaseError) {
+func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (*common.FacilityRequest, *typing.DatabaseError) {
 	var id int64
 	query := "INSERT INTO facility_request (event_id, facility_id, status, start, finish) VALUES (:event_id, :facility_id, :status, :start, :finish) RETURNING id"
 	startTime, _ := ptypes.Timestamp(start)
@@ -163,17 +160,38 @@ func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, s
 		}
 	}
 
-	result := facility.FacilityRequest{
+	result := common.FacilityRequest{
 		Id:         id,
 		EventId:    eventID,
 		FacilityId: facilityID,
-		Status:     facility.RequestStatus_PENDING,
+		Status:     common.Status_PENDING,
 		Start:      start,
 		Finish:     finish,
 	}
-
 	return &result, nil
 }
+
+// // GetFacilityInfo is a function to get facility’s information by id
+// func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, *typing.DatabaseError) {
+// 	var _facility model.Facility
+// 	query := fmt.Sprintf("SELECT * FROM facility WHERE facility.id = %d", facilityID)
+// 	err := dbs.SQL.Get(&_facility, query)
+
+// 	switch {
+// 	case err == sql.ErrNoRows:
+// 		return nil, &typing.DatabaseError{
+// 			Err:        &typing.NotFoundError{Name: "facility"},
+// 			StatusCode: codes.NotFound,
+// 		}
+// 	case err != nil:
+// 		return nil, &typing.DatabaseError{
+// 			Err:        err,
+// 			StatusCode: codes.Internal,
+// 		}
+// 	default:
+// 		return convertFacilityModelToProto(&_facility), nil
+// 	}
+// }
 
 func (dbs *DataService) ping() (string, error) {
 	var version string

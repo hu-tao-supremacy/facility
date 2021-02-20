@@ -9,10 +9,12 @@ import (
 	empty "github.com/golang/protobuf/ptypes/empty"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
 	database "onepass.app/facility/internal/database"
+	typing "onepass.app/facility/internal/typing"
 
 	_ "github.com/lib/pq"
 )
@@ -50,7 +52,7 @@ func (fs *FacilityServer) GetAvailableFacilityList(ctx context.Context, in *empt
 }
 
 // GetFacilityInfo is a function to get facility’s information
-func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetFacilityInfoRequest) (*facility.Facility, error) {
+func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetFacilityInfoRequest) (*common.Facility, error) {
 	result, err := fs.dbs.GetFacilityInfo(in.FacilityId)
 
 	if err != nil {
@@ -60,8 +62,35 @@ func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetF
 	return result, nil
 }
 
+// ApproveFacilityRequest is a function to reject facility’s request by id
+func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facility.ApproveFacilityRequestRequest) (*common.Result, error) {
+	permission := common.Permission_UPDATE_FACILITY
+	isAbleToApproveRequest := hasPermission(in.UserId, in.OrganizationId, permission)
+	if !isAbleToApproveRequest {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	}
+
+	err := fs.dbs.ApproveFacilityRequest(in.RequestId)
+
+	if err != nil {
+		return nil, status.Error(err.StatusCode, err.Error())
+	}
+
+	description := fmt.Sprintf("Request ID: %d has been aproved", in.RequestId)
+	return &common.Result{
+		IsOk:        true,
+		Description: description,
+	}, nil
+}
+
 // RejectFacilityRequest is a function to reject facility’s request by id
 func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facility.RejectFacilityRequestRequest) (*common.Result, error) {
+	permission := common.Permission_UPDATE_FACILITY
+	isAbleToRejectRequest := hasPermission(in.UserId, in.OrganizationId, permission)
+	if !isAbleToRejectRequest {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	}
+
 	err := fs.dbs.RejectFacilityRequest(in.RequestId, in.Reason)
 
 	if err != nil {
@@ -76,7 +105,13 @@ func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facilit
 }
 
 // CreateFacilityRequest is a function to create facility’s request by id
-func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facility.CreateFacilityRequestRequest) (*facility.FacilityRequest, error) {
+func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facility.CreateFacilityRequestRequest) (*common.FacilityRequest, error) {
+	permssion := common.Permission_UPDATE_EVENT
+	isAbleToCreateRequest := hasPermission(in.UserId, in.OrganizationId, permssion)
+	if !isAbleToCreateRequest {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permssion}).Error())
+	}
+
 	result, err := fs.dbs.CreateFacilityRequest(in.EventId, in.FacilityId, in.Start, in.End)
 
 	if err != nil {

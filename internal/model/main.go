@@ -4,7 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"onepass.app/facility/hts/facility"
+	"onepass.app/facility/hts/common"
 )
 
 // Facility is model for database
@@ -12,10 +12,10 @@ type Facility struct {
 	ID             int64
 	OrganizationID int64
 	Name           string
-	Latitude       int64
-	Longitude      int64
-	OperatingHours sql.NullString
-	Description    sql.NullString
+	Latitude       float64
+	Longitude      float64
+	OperatingHours string
+	Description    string
 }
 
 // FacilityRequest is model for database
@@ -23,7 +23,7 @@ type FacilityRequest struct {
 	ID           int64
 	EventID      int64
 	FacilityID   int64
-	Status       facility.RequestStatus
+	Status       common.Status
 	RejectReason sql.NullString
 	Start        *timestamp.Timestamp
 	Finish       *timestamp.Timestamp

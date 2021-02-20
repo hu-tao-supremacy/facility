@@ -18,7 +18,7 @@ code .
 ```
 5. Run
 ```
-go run cmd/main.go
+go run ./cmd/*.go
 ```
 
 ## WSL2 guide
