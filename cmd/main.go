@@ -41,6 +41,7 @@ func (fs *FacilityServer) GetFacilityList(ctx context.Context, in *facility.GetF
 // GetAvailableFacilityList is a function to list all available facilities
 func (fs *FacilityServer) GetAvailableFacilityList(ctx context.Context, in *empty.Empty) (*facility.GetAvailableFacilityListResponse, error) {
 	list, err := fs.dbs.GetAvailableFacilityList()
+	log.Println(err, list)
 
 	if err != nil {
 		return nil, status.Error(err.StatusCode, err.Error())

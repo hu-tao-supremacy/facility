@@ -91,16 +91,16 @@ func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, *ty
 }
 
 func (dbs *DataService) updateFacilityRequest(requestID int64, status common.Status, reason *wrapperspb.StringValue) *typing.DatabaseError {
-	var query string
+	var queryReason string
 	if reason != nil {
-		query = "UPDATE facility_request SET status=:status reason=:reason WHERE facility_request.id = :id"
-	} else {
-		query = "UPDATE facility_request SET status=:status WHERE facility_request.id = :id"
+		queryReason = ", reject_reason=:reason "
 	}
+
+	query := fmt.Sprintf("UPDATE facility_request SET status=:status%s WHERE facility_request.id = :id", queryReason)
 	result, err := dbs.SQL.NamedExec(query, map[string]interface{}{
 		"id":     requestID,
-		"status": status,
-		"reason": reason,
+		"status": status.String(),
+		"reason": reason.GetValue(),
 	})
 	if err != nil {
 		return &typing.DatabaseError{
