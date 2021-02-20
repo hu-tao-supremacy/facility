@@ -32,7 +32,6 @@ func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facilit
 	err := dbs.SQL.Select(&facilities, query)
 
 	if err != nil {
-		log.Println(facilities, query, err)
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
@@ -182,7 +181,6 @@ func (dbs *DataService) IsOverLapTime(facilityID int64, start *timestamppb.Times
 	finishTimeText := finishTime.Format(layoutTime)
 
 	query := fmt.Sprintf("SELECT COUNT(*) FROM facility_request WHERE (('%s' >= start AND '%s' < finish) OR ('%s' > start AND '%s' <= finish)) AND facility_id = %d AND status='APPROVED' LIMIT 1;", startTimeText, startTimeText, finishTimeText, finishTimeText, facilityID)
-	print(query)
 	err := dbs.SQL.Get(&count, query)
 
 	if err != nil {
