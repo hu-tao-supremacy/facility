@@ -71,8 +71,20 @@ func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facili
 		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
 	}
 
-	err := fs.dbs.ApproveFacilityRequest(in.RequestId)
+	facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
+	if err != nil {
+		return nil, status.Error(err.StatusCode, err.Error())
+	}
 
+	isTimeOverlap, err := fs.dbs.IsOverLapTime(facilityRequest.FacilityId, facilityRequest.Start, facilityRequest.Finish)
+	if err != nil {
+		return nil, status.Error(err.StatusCode, err.Error())
+	}
+	if isTimeOverlap {
+		return nil, status.Error(codes.AlreadyExists, (&typing.AlreadyExistError{Name: "Facility is booked at that time"}).Error())
+	}
+
+	err = fs.dbs.ApproveFacilityRequest(in.RequestId)
 	if err != nil {
 		return nil, status.Error(err.StatusCode, err.Error())
 	}
@@ -111,6 +123,11 @@ func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facilit
 	isAbleToCreateRequest := hasPermission(in.UserId, in.OrganizationId, permssion)
 	if !isAbleToCreateRequest {
 		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permssion}).Error())
+	}
+
+	isTimeOverlap, err := fs.dbs.IsOverLapTime(in.FacilityId, in.Start, in.End)
+	if isTimeOverlap {
+		return nil, status.Error(codes.AlreadyExists, (&typing.AlreadyExistError{Name: "Facility is booked at that time"}).Error())
 	}
 
 	result, err := fs.dbs.CreateFacilityRequest(in.EventId, in.FacilityId, in.Start, in.End)

@@ -171,27 +171,46 @@ func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, s
 	return &result, nil
 }
 
-// // GetFacilityInfo is a function to get facility’s information by id
-// func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, *typing.DatabaseError) {
-// 	var _facility model.Facility
-// 	query := fmt.Sprintf("SELECT * FROM facility WHERE facility.id = %d", facilityID)
-// 	err := dbs.SQL.Get(&_facility, query)
+// IsOverLapTime is function to check whether time is overlap with already booked facility
+func (dbs *DataService) IsOverLapTime(facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (bool, *typing.DatabaseError) {
+	var count int64
+	startTime, _ := ptypes.Timestamp(start)
+	finishTime, _ := ptypes.Timestamp(finish)
 
-// 	switch {
-// 	case err == sql.ErrNoRows:
-// 		return nil, &typing.DatabaseError{
-// 			Err:        &typing.NotFoundError{Name: "facility"},
-// 			StatusCode: codes.NotFound,
-// 		}
-// 	case err != nil:
-// 		return nil, &typing.DatabaseError{
-// 			Err:        err,
-// 			StatusCode: codes.Internal,
-// 		}
-// 	default:
-// 		return convertFacilityModelToProto(&_facility), nil
-// 	}
-// }
+	layoutTime := "2006-01-02 15:04:05"
+	startTimeText := startTime.Format(layoutTime)
+	finishTimeText := finishTime.Format(layoutTime)
+
+	query := fmt.Sprintf("SELECT COUNT(*) FROM facility_request WHERE (('%s' >= start AND '%s' < finish) OR ('%s' > start AND '%s' <= finish)) AND facility_id = %d AND status='APPROVED' LIMIT 1;", startTimeText, startTimeText, finishTimeText, finishTimeText, facilityID)
+	print(query)
+	err := dbs.SQL.Get(&count, query)
+
+	if err != nil {
+		return false, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	}
+
+	return count != 0, nil
+}
+
+// GetFacilityRequest is function to get facility request by id
+func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityRequest, *typing.DatabaseError) {
+	var facilityRequest model.FacilityRequest
+
+	query := fmt.Sprintf("SELECT * FROM facility_request WHERE id=%d LIMIT 1", RequestID)
+	err := dbs.SQL.Get(&facilityRequest, query)
+
+	if err != nil {
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	}
+
+	return convertFacilityRequestModelToProto(&facilityRequest), nil
+}
 
 func (dbs *DataService) ping() (string, error) {
 	var version string

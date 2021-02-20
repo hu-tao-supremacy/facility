@@ -26,3 +26,10 @@ type PermissionError struct {
 }
 
 func (e *PermissionError) Error() string { return e.Type.String() + " is denied" }
+
+// AlreadyExistError is error for existed entry
+type AlreadyExistError struct {
+	Name string
+}
+
+func (e *AlreadyExistError) Error() string { return e.Name + ": already exist" }

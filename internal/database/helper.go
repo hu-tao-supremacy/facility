@@ -1,6 +1,8 @@
 package database
 
 import (
+	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	common "onepass.app/facility/hts/common"
 	model "onepass.app/facility/internal/model"
 )
@@ -14,5 +16,21 @@ func convertFacilityModelToProto(data *model.Facility) *common.Facility {
 		Longitude:      data.Longitude,
 		OperatingHours: data.OperatingHours,
 		Description:    data.Description,
+	}
+}
+
+func convertFacilityRequestModelToProto(data *model.FacilityRequest) *common.FacilityRequest {
+	var rejectReason *wrappers.StringValue
+	if data.RejectReason.Valid {
+		rejectReason = &wrappers.StringValue{Value: data.RejectReason.String}
+	}
+	return &common.FacilityRequest{
+		Id:           data.ID,
+		EventId:      data.EventID,
+		FacilityId:   data.FacilityID,
+		Status:       common.Status(common.Status_value[data.Status]),
+		RejectReason: rejectReason,
+		Start:        timestamppb.New(data.Start),
+		Finish:       timestamppb.New(data.Finish),
 	}
 }

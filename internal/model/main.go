@@ -2,9 +2,7 @@ package model
 
 import (
 	"database/sql"
-
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"onepass.app/facility/hts/common"
+	"time"
 )
 
 // Facility is model for database
@@ -23,8 +21,8 @@ type FacilityRequest struct {
 	ID           int64
 	EventID      int64
 	FacilityID   int64
-	Status       common.Status
+	Status       string
 	RejectReason sql.NullString
-	Start        *timestamp.Timestamp
-	Finish       *timestamp.Timestamp
+	Start        time.Time
+	Finish       time.Time
 }
