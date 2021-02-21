@@ -105,8 +105,7 @@ func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facilit
 
 // CreateFacilityRequest is a function to create facility’s request by id
 func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facility.CreateFacilityRequestRequest) (*common.FacilityRequest, error) {
-	permission := common.Permission_UPDATE_EVENT
-	isConditionPassed, err := isAbleToCreateFacilityRequest(fs, in, permission)
+	isConditionPassed, err := isAbleToCreateFacilityRequest(fs, in)
 
 	if !isConditionPassed || err != nil {
 		return nil, status.Error(err.Code(), err.Error())
