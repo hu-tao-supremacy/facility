@@ -98,17 +98,21 @@ func convertFacilityRequestWithInfoModelToProto(data *model.FacilityRequestWithI
 func checkDayIntegrity(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
 	dayStart := start.Day()
 	dayFinish := finish.Day()
+	now := time.Now()
 	if dayStart != dayFinish {
 		return &typing.InputError{Name: "Start and Finish must be the same day"}
 	}
 
-	if dayStart > time.Now().Day()+30 {
+	if dayStart > now.Day()+30 {
 		return &typing.InputError{Name: "Booking date can only be within 30 days period from today"}
 	}
 
 	HourStart, MinuteStart, secondStart := start.Clock()
 	HourFinish, MinuteFinish, secondFinish := finish.Clock()
 
+	if dayStart < now.Day() || HourStart < now.Hour() {
+		return &typing.InputError{Name: "Booking time must be more than now"}
+	}
 	if MinuteStart != 0 || secondStart != 0 || MinuteFinish != 0 || secondFinish != 0 {
 		return &typing.InputError{Name: "Minutes and seconds must be 0"}
 	}
