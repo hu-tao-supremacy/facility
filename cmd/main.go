@@ -65,22 +65,10 @@ func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetF
 // ApproveFacilityRequest is a function to reject facility’s request by id
 func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facility.ApproveFacilityRequestRequest) (*common.Result, error) {
 	permission := common.Permission_UPDATE_FACILITY
-	isAbleToApproveRequest := hasPermission(in.UserId, in.OrganizationId, permission)
-	if !isAbleToApproveRequest {
-		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
-	}
+	isConditionPassed, err := isAbleToApproveFacilityRequest(fs, in, permission)
 
-	facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
-	if err != nil {
+	if !isConditionPassed || err != nil {
 		return nil, status.Error(err.Code(), err.Error())
-	}
-
-	isTimeOverlap, err := fs.dbs.IsOverLapTime(facilityRequest.FacilityId, facilityRequest.Start, facilityRequest.Finish)
-	if err != nil {
-		return nil, status.Error(err.Code(), err.Error())
-	}
-	if isTimeOverlap {
-		return nil, status.Error(codes.AlreadyExists, (&typing.AlreadyExistError{Name: "Facility is booked at that time"}).Error())
 	}
 
 	err = fs.dbs.ApproveFacilityRequest(in.RequestId)
