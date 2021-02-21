@@ -187,8 +187,13 @@ func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, s
 	return &result, nil
 }
 
-// IsOverLapTime is function to check whether time is overlap with already booked facility
-func (dbs *DataService) IsOverLapTime(facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (bool, typing.CustomError) {
+// IsOverlapTime is function to check whether time is overlap with already booked facility
+func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (bool, typing.CustomError) {
+	_, facilityNotFoundError := dbs.GetFacilityInfo(facilityID)
+	if facilityNotFoundError != nil {
+		return false, facilityNotFoundError
+	}
+
 	var count int64
 	startTime, _ := ptypes.Timestamp(start)
 	finishTime, _ := ptypes.Timestamp(finish)
@@ -229,14 +234,20 @@ func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityReq
 	`, RequestID)
 	err := dbs.SQL.Get(&facilityRequest, query)
 
-	if err != nil {
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, &typing.DatabaseError{
+			Err:        &typing.NotFoundError{Name: "facility"},
+			StatusCode: codes.NotFound,
+		}
+	case err != nil:
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
 		}
+	default:
+		return convertFacilityRequestModelToProto(&facilityRequest), nil
 	}
-
-	return convertFacilityRequestModelToProto(&facilityRequest), nil
 }
 
 func (dbs *DataService) ping() (string, error) {
