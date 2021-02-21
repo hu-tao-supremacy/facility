@@ -164,6 +164,44 @@ func (fs *FacilityServer) GetFacilityRequestsListStatus(ctx context.Context, in 
 	}, nil
 }
 
+// GetFacilityRequestStatus is a function to get facility request’s of the event
+func (fs *FacilityServer) GetFacilityRequestStatus(ctx context.Context, in *facility.GetFacilityRequestStatusRequest) (*common.FacilityRequest, error) {
+	result, err := fs.dbs.GetFacilityRequest(in.RequestId)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	isAbleToviewRequest, permission, err := isAbleToViewFacilityRequest(fs, in.UserId, result)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	if !isAbleToviewRequest {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	}
+
+	return result, nil
+}
+
+// GetFacilityRequestStatusFull is a function to get facility request’s of the event
+func (fs *FacilityServer) GetFacilityRequestStatusFull(ctx context.Context, in *facility.GetFacilityRequestStatusFullRequest) (*facility.FacilityRequestWithFacilityInfo, error) {
+	result, err := fs.dbs.GetFacilityRequestStatusFull(in.RequestId)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	isAbleToviewRequest, permission, err := isAbleToViewFacilityRequestFull(fs, in.UserId, result)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	if !isAbleToviewRequest {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	}
+
+	return result, nil
+}
+
 func main() {
 	port := os.Getenv("GRPC_PORT")
 	lis, err := net.Listen("tcp", ":"+port)

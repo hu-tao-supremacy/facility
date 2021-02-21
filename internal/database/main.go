@@ -223,6 +223,43 @@ func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Times
 	return count != 0, nil
 }
 
+// GetFacilityRequestStatusFull is function to get facilityR request full by id
+func (dbs *DataService) GetFacilityRequestStatusFull(RequestID int64) (*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
+	var facilityRequest model.FacilityRequestWithInfo
+
+	query := fmt.Sprintf(`
+	SELECT 
+	r.*,
+	f.organization_id, 
+	f.name as facility_name, 
+	f.latitude, 
+	f.longitude, 
+	f.organization_id, 
+	f.operating_hours,
+	f.description 
+	FROM facility_request as r
+	INNER JOIN facility as f
+	ON f.id = r.facility_id
+	WHERE r.id=%d
+	LIMIT 1;`, RequestID)
+	err := dbs.SQL.Get(&facilityRequest, query)
+
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, &typing.DatabaseError{
+			Err:        &typing.NotFoundError{Name: "facility"},
+			StatusCode: codes.NotFound,
+		}
+	case err != nil:
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	default:
+		return convertFacilityRequestWithInfoModelToProto(&facilityRequest), nil
+	}
+}
+
 // GetFacilityRequest is function to get facility request by id
 func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityRequest, typing.CustomError) {
 	var facilityRequest model.FacilityRequest
@@ -286,7 +323,7 @@ func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facilit
 	return result, nil
 }
 
-// GetFacilityRequestListStatus is a function to get facilityrequest list of the event from database
+// GetFacilityRequestsListStatus is a function to get facilityrequest list of the event from database
 func (dbs *DataService) GetFacilityRequestsListStatus(eventID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
 	var facilities []*model.FacilityRequestWithInfo
 
