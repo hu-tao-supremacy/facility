@@ -3,7 +3,16 @@ package model
 import (
 	"database/sql"
 	"time"
+
+	"github.com/jmoiron/sqlx/types"
 )
+
+// OperatingHour is struct for facility operationHours
+type OperatingHour struct {
+	StartHour  int64  `json:"start_hour"`
+	FinishHour int64  `json:"finish_hour"`
+	Day        string `json:"day"`
+}
 
 // Facility is model for database
 type Facility struct {
@@ -12,7 +21,7 @@ type Facility struct {
 	Name           string
 	Latitude       float64
 	Longitude      float64
-	OperatingHours string
+	OperatingHours types.JSONText
 	Description    string
 }
 
@@ -41,6 +50,6 @@ type FacilityRequestWithInfo struct {
 	FacilityName   string
 	Latitude       float64
 	Longitude      float64
-	OperatingHours string
+	OperatingHours types.JSONText
 	Description    string
 }

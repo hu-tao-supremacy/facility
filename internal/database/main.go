@@ -59,7 +59,11 @@ func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facilit
 	}
 	result := make([]*common.Facility, len(facilities))
 	for i, item := range facilities {
-		result[i] = convertFacilityModelToProto(item)
+		value, err := convertFacilityModelToProto(item)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = value
 	}
 
 	return result, nil
@@ -82,7 +86,11 @@ func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, typing.C
 
 	result := make([]*common.Facility, len(facilities))
 	for i, item := range facilities {
-		result[i] = convertFacilityModelToProto(item)
+		value, err := convertFacilityModelToProto(item)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = value
 	}
 
 	return result, nil
@@ -110,7 +118,7 @@ func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, typ
 			StatusCode: codes.Internal,
 		}
 	default:
-		return convertFacilityModelToProto(&_facility), nil
+		return convertFacilityModelToProto(&_facility)
 	}
 }
 
@@ -258,7 +266,7 @@ func (dbs *DataService) GetFacilityRequestStatusFull(RequestID int64) (*facility
 			StatusCode: codes.Internal,
 		}
 	default:
-		return convertFacilityRequestWithInfoModelToProto(&facilityRequest), nil
+		return convertFacilityRequestWithInfoModelToProto(&facilityRequest)
 	}
 }
 
@@ -307,7 +315,11 @@ func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facilit
 	}
 	result := make([]*facility.FacilityRequestWithFacilityInfo, len(facilities))
 	for i, item := range facilities {
-		result[i] = convertFacilityRequestWithInfoModelToProto(item)
+		value, err := convertFacilityRequestWithInfoModelToProto(item)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = value
 	}
 
 	return result, nil
@@ -330,7 +342,11 @@ func (dbs *DataService) GetFacilityRequestsListStatus(eventID int64) ([]*facilit
 	}
 	result := make([]*facility.FacilityRequestWithFacilityInfo, len(facilities))
 	for i, item := range facilities {
-		result[i] = convertFacilityRequestWithInfoModelToProto(item)
+		value, err := convertFacilityRequestWithInfoModelToProto(item)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = value
 	}
 
 	return result, nil
