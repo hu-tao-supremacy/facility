@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	empty "github.com/golang/protobuf/ptypes/empty"
 
@@ -121,7 +122,8 @@ func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facilit
 }
 
 func main() {
-	lis, err := net.Listen("tcp", ":50051")
+	port := os.Getenv("GRPC_PORT")
+	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
