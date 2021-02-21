@@ -9,12 +9,10 @@ import (
 	empty "github.com/golang/protobuf/ptypes/empty"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
 	database "onepass.app/facility/internal/database"
-	typing "onepass.app/facility/internal/typing"
 
 	_ "github.com/lib/pq"
 )
@@ -86,12 +84,12 @@ func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facili
 // RejectFacilityRequest is a function to reject facility’s request by id
 func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facility.RejectFacilityRequestRequest) (*common.Result, error) {
 	permission := common.Permission_UPDATE_FACILITY
-	isAbleToRejectRequest := hasPermission(in.UserId, in.OrganizationId, permission)
-	if !isAbleToRejectRequest {
-		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	isConditionPassed, err := isAbleToRejectFacilityRequest(fs, in, permission)
+	if !isConditionPassed || err != nil {
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
-	err := fs.dbs.RejectFacilityRequest(in.RequestId, in.Reason)
+	err = fs.dbs.RejectFacilityRequest(in.RequestId, in.Reason)
 
 	if err != nil {
 		return nil, status.Error(err.Code(), err.Error())

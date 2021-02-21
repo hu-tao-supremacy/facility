@@ -28,7 +28,7 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permission) }()
 	go func() { eventOwnerChannel <- hasEvent(in.UserId, in.OrganizationId, in.EventId) }()
 	go func() {
-		isTimeOverlap, err := fs.dbs.IsOverLapTime(in.FacilityId, in.Start, in.End)
+		isTimeOverlap, err := fs.dbs.IsOverlapTime(in.FacilityId, in.Start, in.End)
 		overlapTimeChannel <- isTimeOverlap
 		errorChannel <- err
 	}()
@@ -36,7 +36,7 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	isPermission := <-havingPermissionChannel
 	isEventOwner := <-eventOwnerChannel
 	isTimeOverlap := <-overlapTimeChannel
-	overalpErr := <-errorChannel
+	overlapError := <-errorChannel
 
 	close(havingPermissionChannel)
 	close(eventOwnerChannel)
@@ -47,8 +47,8 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 		return false, &typing.PermissionError{Type: permission}
 	}
 
-	if overalpErr != nil {
-		return false, overalpErr
+	if overlapError != nil {
+		return false, overlapError
 	}
 	if isTimeOverlap {
 		return false, &typing.AlreadyExistError{Name: "Facility is booked at that time"}
@@ -57,10 +57,11 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	return true, nil
 }
 
-// isAbleToApproveFacilityRequest is function to check if a facility is able to be approve according to user psermission
+// isAbleToApproveFacilityRequest is function to check if a facility is able to be approved according to user psermission
 func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFacilityRequestRequest, permission common.Permission) (bool, typing.CustomError) {
 	havingPermissionChannel := make(chan bool)
 	overlapTimeChannel := make(chan bool)
+	facilityOwnerChannel := make(chan bool)
 	errorChannel := make(chan typing.CustomError)
 
 	go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permission) }()
@@ -71,28 +72,91 @@ func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFaci
 			return
 		}
 
-		isTimeOverlap, err := fs.dbs.IsOverLapTime(facilityRequest.FacilityId, facilityRequest.Start, facilityRequest.Finish)
-		overlapTimeChannel <- isTimeOverlap
-		errorChannel <- err
+		go func() {
+			facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
+			errorChannel <- err
+			facilityOwnerChannel <- facility.OrganizationId == in.OrganizationId
+		}()
+
+		go func() {
+			isTimeOverlap, err := fs.dbs.IsOverlapTime(facilityRequest.FacilityId, facilityRequest.Start, facilityRequest.Finish)
+			errorChannel <- err
+			overlapTimeChannel <- isTimeOverlap
+		}()
+
 	}()
 
 	isPermission := <-havingPermissionChannel
 	isTimeOverlap := <-overlapTimeChannel
-	overalpErr := <-errorChannel
+	err1 := <-errorChannel
+	err2 := <-errorChannel
+	isFacilityOwner := <-facilityOwnerChannel
 
 	close(havingPermissionChannel)
 	close(overlapTimeChannel)
 	close(errorChannel)
+	close(facilityOwnerChannel)
 
-	if !(isPermission) {
+	if err1 != nil {
+		return false, err1
+	}
+
+	if err2 != nil {
+		return false, err2
+	}
+
+	if !(isPermission && isFacilityOwner) {
 		return false, &typing.PermissionError{Type: permission}
 	}
 
-	if overalpErr != nil {
-		return false, overalpErr
-	}
 	if isTimeOverlap {
 		return false, &typing.AlreadyExistError{Name: "Facility is booked at that time"}
+	}
+
+	return true, nil
+}
+
+// isAbleToRejectFacilityRequest is function to check if a facility is able to be rejected according to user psermission
+func isAbleToRejectFacilityRequest(fs *FacilityServer, in *facility.RejectFacilityRequestRequest, permission common.Permission) (bool, typing.CustomError) {
+	havingPermissionChannel := make(chan bool)
+	facilityOwnerChannel := make(chan bool)
+	errorChannel := make(chan typing.CustomError)
+
+	go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permission) }()
+	go func() {
+		facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
+		if err != nil {
+			errorChannel <- err
+			return
+		}
+
+		go func() {
+			facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
+			errorChannel <- err
+			facilityOwnerChannel <- facility.OrganizationId == in.OrganizationId
+		}()
+
+	}()
+
+	isPermission := <-havingPermissionChannel
+	err1 := <-errorChannel
+	err2 := <-errorChannel
+	isFacilityOwner := <-facilityOwnerChannel
+
+	close(havingPermissionChannel)
+	close(errorChannel)
+	close(facilityOwnerChannel)
+
+	if err1 != nil {
+		return false, err1
+	}
+
+	if err2 != nil {
+		return false, err2
+	}
+
+	if !(isPermission && isFacilityOwner) {
+		return false, &typing.PermissionError{Type: permission}
 	}
 
 	return true, nil

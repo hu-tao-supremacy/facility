@@ -187,8 +187,8 @@ func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, s
 	return &result, nil
 }
 
-// IsOverLapTime is function to check whether time is overlap with already booked facility
-func (dbs *DataService) IsOverLapTime(facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (bool, typing.CustomError) {
+// IsOverlapTime is function to check whether time is overlap with already booked facility
+func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (bool, typing.CustomError) {
 	var count int64
 	startTime, _ := ptypes.Timestamp(start)
 	finishTime, _ := ptypes.Timestamp(finish)
