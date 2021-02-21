@@ -27,6 +27,20 @@ type DataService struct {
 	SQL *sqlx.DB
 }
 
+const queryForRequestFacilityWithFacilty = `
+SELECT 
+r.*,
+f.organization_id, 
+f.name as facility_name, 
+f.latitude, 
+f.longitude, 
+f.organization_id, 
+f.operating_hours,
+f.description 
+FROM facility_request as r
+INNER JOIN facility as f
+ON f.id = r.facility_id`
+
 // GetFacilityList is a function to get facility list owned by the organization from database
 func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facility, typing.CustomError) {
 	var facilities []*model.Facility
@@ -227,20 +241,8 @@ func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Times
 func (dbs *DataService) GetFacilityRequestStatusFull(RequestID int64) (*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
 	var facilityRequest model.FacilityRequestWithInfo
 
-	query := fmt.Sprintf(`
-	SELECT 
-	r.*,
-	f.organization_id, 
-	f.name as facility_name, 
-	f.latitude, 
-	f.longitude, 
-	f.organization_id, 
-	f.operating_hours,
-	f.description 
-	FROM facility_request as r
-	INNER JOIN facility as f
-	ON f.id = r.facility_id
-	WHERE r.id=%d
+	query := fmt.Sprintf(queryForRequestFacilityWithFacilty+`
+	WHERE r.id=%d 
 	LIMIT 1;`, RequestID)
 	err := dbs.SQL.Get(&facilityRequest, query)
 
@@ -292,19 +294,7 @@ func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityReq
 func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
 	var facilities []*model.FacilityRequestWithInfo
 
-	query := fmt.Sprintf(`
-	SELECT 
-	r.*,
-	f.organization_id, 
-	f.name as facility_name, 
-	f.latitude, 
-	f.longitude, 
-	f.organization_id, 
-	f.operating_hours,
-	f.description 
-	FROM facility_request as r
-	INNER JOIN facility as f
-	ON f.id = r.facility_id
+	query := fmt.Sprintf(queryForRequestFacilityWithFacilty+`
 	WHERE organization_id = %d;`,
 		organizationID)
 	err := dbs.SQL.Select(&facilities, query)
@@ -327,20 +317,8 @@ func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facilit
 func (dbs *DataService) GetFacilityRequestsListStatus(eventID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
 	var facilities []*model.FacilityRequestWithInfo
 
-	query := fmt.Sprintf(`
-	SELECT 
-	r.*,
-	f.organization_id, 
-	f.name as facility_name, 
-	f.latitude, 
-	f.longitude, 
-	f.organization_id, 
-	f.operating_hours,
-	f.description 
-	FROM facility_request as r
-	INNER JOIN facility as f
-	ON f.id = r.facility_id
-	WHERE event_id = %d;`,
+	query := fmt.Sprintf(queryForRequestFacilityWithFacilty+`
+	 WHERE event_id = %d;`,
 		eventID)
 	err := dbs.SQL.Select(&facilities, query)
 
