@@ -41,7 +41,6 @@ func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facilit
 			StatusCode: codes.Internal,
 		}
 	}
-
 	result := make([]*common.Facility, len(facilities))
 	for i, item := range facilities {
 		result[i] = convertFacilityModelToProto(item)
