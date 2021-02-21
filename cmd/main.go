@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"database/sql"
+	"fmt"
 	"log"
 	"net"
 
@@ -11,8 +11,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
 	database "onepass.app/facility/internal/database"
+	typing "onepass.app/facility/internal/typing"
 
 	_ "github.com/lib/pq"
 )
@@ -28,7 +30,7 @@ func (fs *FacilityServer) GetFacilityList(ctx context.Context, in *facility.GetF
 	list, err := fs.dbs.GetFacilityList(in.OrganizationId)
 
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	return &facility.GetFacilityListResponse{
@@ -41,7 +43,7 @@ func (fs *FacilityServer) GetAvailableFacilityList(ctx context.Context, in *empt
 	list, err := fs.dbs.GetAvailableFacilityList()
 
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	return &facility.GetAvailableFacilityListResponse{
@@ -50,17 +52,74 @@ func (fs *FacilityServer) GetAvailableFacilityList(ctx context.Context, in *empt
 }
 
 // GetFacilityInfo is a function to get facility’s information
-func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetFacilityInfoRequest) (*facility.Facility, error) {
+func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetFacilityInfoRequest) (*common.Facility, error) {
 	result, err := fs.dbs.GetFacilityInfo(in.FacilityId)
 
-	switch {
-	case err == sql.ErrNoRows:
-		return nil, status.Error(codes.NotFound, err.Error())
-	case err != nil:
-		return nil, status.Error(codes.Internal, err.Error())
-	default:
-		return result, nil
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
 	}
+
+	return result, nil
+}
+
+// ApproveFacilityRequest is a function to reject facility’s request by id
+func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facility.ApproveFacilityRequestRequest) (*common.Result, error) {
+	permission := common.Permission_UPDATE_FACILITY
+	isConditionPassed, err := isAbleToApproveFacilityRequest(fs, in, permission)
+
+	if !isConditionPassed || err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	err = fs.dbs.ApproveFacilityRequest(in.RequestId)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	description := fmt.Sprintf("Request ID: %d has been aproved", in.RequestId)
+	return &common.Result{
+		IsOk:        true,
+		Description: description,
+	}, nil
+}
+
+// RejectFacilityRequest is a function to reject facility’s request by id
+func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facility.RejectFacilityRequestRequest) (*common.Result, error) {
+	permission := common.Permission_UPDATE_FACILITY
+	isAbleToRejectRequest := hasPermission(in.UserId, in.OrganizationId, permission)
+	if !isAbleToRejectRequest {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	}
+
+	err := fs.dbs.RejectFacilityRequest(in.RequestId, in.Reason)
+
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	description := fmt.Sprintf("Request ID: %d has been rejected", in.RequestId)
+	return &common.Result{
+		IsOk:        true,
+		Description: description,
+	}, nil
+}
+
+// CreateFacilityRequest is a function to create facility’s request by id
+func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facility.CreateFacilityRequestRequest) (*common.FacilityRequest, error) {
+	permssion := common.Permission_UPDATE_EVENT
+	isConditionPassed, err := isAbleToCreateFacilityRequest(fs, in, permssion)
+
+	if !isConditionPassed || err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	result, err := fs.dbs.CreateFacilityRequest(in.EventId, in.FacilityId, in.Start, in.End)
+
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	return result, nil
 }
 
 func main() {

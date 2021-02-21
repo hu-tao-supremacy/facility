@@ -18,7 +18,17 @@ code .
 ```
 5. Run
 ```
-go run cmd/main.go
+go run ./cmd/*.go
+```
+
+## Build binary file
+1. Run go build command
+```
+go build -o main ./cmd/*.go
+```
+2. Execute binary file
+```
+./main
 ```
 
 ## WSL2 guide
