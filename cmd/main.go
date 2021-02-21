@@ -123,7 +123,7 @@ func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facilit
 	return result, nil
 }
 
-// GetFacilityRequestList is a function to get facility’s of the organization
+// GetFacilityRequestList is a function to get facility request’s of the organization
 func (fs *FacilityServer) GetFacilityRequestList(ctx context.Context, in *facility.GetFacilityRequestListRequest) (*facility.GetFacilityRequestListResponse, error) {
 	permission := common.Permission_UPDATE_FACILITY
 	isPermission := hasPermission(in.UserId, in.OrganizationId, permission)
@@ -139,6 +139,27 @@ func (fs *FacilityServer) GetFacilityRequestList(ctx context.Context, in *facili
 	}
 
 	return &facility.GetFacilityRequestListResponse{
+		Requests: result,
+	}, nil
+}
+
+// GetFacilityRequestsListStatus is a function to get facility’s of the event
+func (fs *FacilityServer) GetFacilityRequestsListStatus(ctx context.Context, in *facility.GetFacilityRequestsListStatusRequest) (*facility.GetFacilityRequestsListStatusResponse, error) {
+	permission := common.Permission_UPDATE_FACILITY
+	event := getEvent(in.EventId)
+	isPermission := hasPermission(in.UserId, event.OrganizationId, permission)
+
+	if !isPermission {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	}
+
+	result, err := fs.dbs.GetFacilityRequestsListStatus(in.EventId)
+
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	return &facility.GetFacilityRequestsListStatusResponse{
 		Requests: result,
 	}, nil
 }

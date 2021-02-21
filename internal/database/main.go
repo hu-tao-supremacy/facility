@@ -286,6 +286,41 @@ func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facilit
 	return result, nil
 }
 
+// GetFacilityRequestListStatus is a function to get facilityrequest list of the event from database
+func (dbs *DataService) GetFacilityRequestsListStatus(eventID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
+	var facilities []*model.FacilityRequestWithInfo
+
+	query := fmt.Sprintf(`
+	SELECT 
+	r.*,
+	f.organization_id, 
+	f.name as facility_name, 
+	f.latitude, 
+	f.longitude, 
+	f.organization_id, 
+	f.operating_hours,
+	f.description 
+	FROM facility_request as r
+	INNER JOIN facility as f
+	ON f.id = r.facility_id
+	WHERE event_id = %d;`,
+		eventID)
+	err := dbs.SQL.Select(&facilities, query)
+
+	if err != nil {
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	}
+	result := make([]*facility.FacilityRequestWithFacilityInfo, len(facilities))
+	for i, item := range facilities {
+		result[i] = convertFacilityRequestWithInfoModelToProto(item)
+	}
+
+	return result, nil
+}
+
 func (dbs *DataService) ping() (string, error) {
 	var version string
 	err := dbs.SQL.Get(&version, "SELECT VERSION();")
