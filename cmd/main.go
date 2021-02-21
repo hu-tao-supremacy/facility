@@ -10,10 +10,12 @@ import (
 	empty "github.com/golang/protobuf/ptypes/empty"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
 	database "onepass.app/facility/internal/database"
+	typing "onepass.app/facility/internal/typing"
 
 	_ "github.com/lib/pq"
 )
@@ -63,8 +65,7 @@ func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetF
 
 // ApproveFacilityRequest is a function to reject facility’s request by id
 func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facility.ApproveFacilityRequestRequest) (*common.Result, error) {
-	permission := common.Permission_UPDATE_FACILITY
-	isConditionPassed, err := isAbleToApproveFacilityRequest(fs, in, permission)
+	isConditionPassed, err := isAbleToApproveFacilityRequest(fs, in)
 
 	if !isConditionPassed || err != nil {
 		return nil, status.Error(err.Code(), err.Error())
@@ -84,8 +85,7 @@ func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facili
 
 // RejectFacilityRequest is a function to reject facility’s request by id
 func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facility.RejectFacilityRequestRequest) (*common.Result, error) {
-	permission := common.Permission_UPDATE_FACILITY
-	isConditionPassed, err := isAbleToRejectFacilityRequest(fs, in, permission)
+	isConditionPassed, err := isAbleToRejectFacilityRequest(fs, in)
 	if !isConditionPassed || err != nil {
 		return nil, status.Error(err.Code(), err.Error())
 	}
@@ -105,8 +105,8 @@ func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facilit
 
 // CreateFacilityRequest is a function to create facility’s request by id
 func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facility.CreateFacilityRequestRequest) (*common.FacilityRequest, error) {
-	permssion := common.Permission_UPDATE_EVENT
-	isConditionPassed, err := isAbleToCreateFacilityRequest(fs, in, permssion)
+	permission := common.Permission_UPDATE_EVENT
+	isConditionPassed, err := isAbleToCreateFacilityRequest(fs, in, permission)
 
 	if !isConditionPassed || err != nil {
 		return nil, status.Error(err.Code(), err.Error())
@@ -116,6 +116,85 @@ func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facilit
 
 	if err != nil {
 		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	return result, nil
+}
+
+// GetFacilityRequestList is a function to get facility request’s of the organization
+func (fs *FacilityServer) GetFacilityRequestList(ctx context.Context, in *facility.GetFacilityRequestListRequest) (*facility.GetFacilityRequestListResponse, error) {
+	permission := common.Permission_UPDATE_FACILITY
+	isPermission := hasPermission(in.UserId, in.OrganizationId, permission)
+
+	if !isPermission {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	}
+
+	result, err := fs.dbs.GetFacilityRequestList(in.OrganizationId)
+
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	return &facility.GetFacilityRequestListResponse{
+		Requests: result,
+	}, nil
+}
+
+// GetFacilityRequestsListStatus is a function to get facility’s of the event
+func (fs *FacilityServer) GetFacilityRequestsListStatus(ctx context.Context, in *facility.GetFacilityRequestsListStatusRequest) (*facility.GetFacilityRequestsListStatusResponse, error) {
+	permission := common.Permission_UPDATE_FACILITY
+	event := getEvent(in.EventId)
+	isPermission := hasPermission(in.UserId, event.OrganizationId, permission)
+
+	if !isPermission {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	}
+
+	result, err := fs.dbs.GetFacilityRequestsListStatus(in.EventId)
+
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	return &facility.GetFacilityRequestsListStatusResponse{
+		Requests: result,
+	}, nil
+}
+
+// GetFacilityRequestStatus is a function to get facility request’s of the event
+func (fs *FacilityServer) GetFacilityRequestStatus(ctx context.Context, in *facility.GetFacilityRequestStatusRequest) (*common.FacilityRequest, error) {
+	result, err := fs.dbs.GetFacilityRequest(in.RequestId)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	isAbleToviewRequest, permission, err := isAbleToViewFacilityRequest(fs, in.UserId, result)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	if !isAbleToviewRequest {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	}
+
+	return result, nil
+}
+
+// GetFacilityRequestStatusFull is a function to get facility request’s of the event
+func (fs *FacilityServer) GetFacilityRequestStatusFull(ctx context.Context, in *facility.GetFacilityRequestStatusFullRequest) (*facility.FacilityRequestWithFacilityInfo, error) {
+	result, err := fs.dbs.GetFacilityRequestStatusFull(in.RequestId)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	isAbleToviewRequest, permission, err := isAbleToViewFacilityRequestFull(fs, in.UserId, result)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	if !isAbleToviewRequest {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
 	}
 
 	return result, nil

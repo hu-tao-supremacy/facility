@@ -12,7 +12,9 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	common "onepass.app/facility/hts/common"
+	facility "onepass.app/facility/hts/facility"
 	model "onepass.app/facility/internal/model"
 	typing "onepass.app/facility/internal/typing"
 
@@ -24,6 +26,20 @@ import (
 type DataService struct {
 	SQL *sqlx.DB
 }
+
+const queryForRequestFacilityWithFacilty = `
+SELECT 
+r.*,
+f.organization_id, 
+f.name as facility_name, 
+f.latitude, 
+f.longitude, 
+f.organization_id, 
+f.operating_hours,
+f.description 
+FROM facility_request as r
+INNER JOIN facility as f
+ON f.id = r.facility_id`
 
 // GetFacilityList is a function to get facility list owned by the organization from database
 func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facility, typing.CustomError) {
@@ -41,7 +57,6 @@ func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facilit
 			StatusCode: codes.Internal,
 		}
 	}
-
 	result := make([]*common.Facility, len(facilities))
 	for i, item := range facilities {
 		result[i] = convertFacilityModelToProto(item)
@@ -222,6 +237,31 @@ func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Times
 	return count != 0, nil
 }
 
+// GetFacilityRequestStatusFull is function to get facilityR request full by id
+func (dbs *DataService) GetFacilityRequestStatusFull(RequestID int64) (*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
+	var facilityRequest model.FacilityRequestWithInfo
+
+	query := fmt.Sprintf(queryForRequestFacilityWithFacilty+`
+	WHERE r.id=%d 
+	LIMIT 1;`, RequestID)
+	err := dbs.SQL.Get(&facilityRequest, query)
+
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, &typing.DatabaseError{
+			Err:        &typing.NotFoundError{Name: "facility"},
+			StatusCode: codes.NotFound,
+		}
+	case err != nil:
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	default:
+		return convertFacilityRequestWithInfoModelToProto(&facilityRequest), nil
+	}
+}
+
 // GetFacilityRequest is function to get facility request by id
 func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityRequest, typing.CustomError) {
 	var facilityRequest model.FacilityRequest
@@ -248,6 +288,52 @@ func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityReq
 	default:
 		return convertFacilityRequestModelToProto(&facilityRequest), nil
 	}
+}
+
+// GetFacilityRequestList is a function to get facilityrequest list owned by the organization from database
+func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
+	var facilities []*model.FacilityRequestWithInfo
+
+	query := fmt.Sprintf(queryForRequestFacilityWithFacilty+`
+	WHERE organization_id = %d;`,
+		organizationID)
+	err := dbs.SQL.Select(&facilities, query)
+
+	if err != nil {
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	}
+	result := make([]*facility.FacilityRequestWithFacilityInfo, len(facilities))
+	for i, item := range facilities {
+		result[i] = convertFacilityRequestWithInfoModelToProto(item)
+	}
+
+	return result, nil
+}
+
+// GetFacilityRequestsListStatus is a function to get facilityrequest list of the event from database
+func (dbs *DataService) GetFacilityRequestsListStatus(eventID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
+	var facilities []*model.FacilityRequestWithInfo
+
+	query := fmt.Sprintf(queryForRequestFacilityWithFacilty+`
+	 WHERE event_id = %d;`,
+		eventID)
+	err := dbs.SQL.Select(&facilities, query)
+
+	if err != nil {
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	}
+	result := make([]*facility.FacilityRequestWithFacilityInfo, len(facilities))
+	for i, item := range facilities {
+		result[i] = convertFacilityRequestWithInfoModelToProto(item)
+	}
+
+	return result, nil
 }
 
 func (dbs *DataService) ping() (string, error) {
