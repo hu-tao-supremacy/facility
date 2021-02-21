@@ -10,10 +10,12 @@ import (
 	empty "github.com/golang/protobuf/ptypes/empty"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
 	database "onepass.app/facility/internal/database"
+	typing "onepass.app/facility/internal/typing"
 
 	_ "github.com/lib/pq"
 )
@@ -105,8 +107,8 @@ func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facilit
 
 // CreateFacilityRequest is a function to create facility’s request by id
 func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facility.CreateFacilityRequestRequest) (*common.FacilityRequest, error) {
-	permssion := common.Permission_UPDATE_EVENT
-	isConditionPassed, err := isAbleToCreateFacilityRequest(fs, in, permssion)
+	permission := common.Permission_UPDATE_EVENT
+	isConditionPassed, err := isAbleToCreateFacilityRequest(fs, in, permission)
 
 	if !isConditionPassed || err != nil {
 		return nil, status.Error(err.Code(), err.Error())
@@ -119,6 +121,26 @@ func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facilit
 	}
 
 	return result, nil
+}
+
+// GetFacilityRequestList is a function to get facility’s of the organization
+func (fs *FacilityServer) GetFacilityRequestList(ctx context.Context, in *facility.GetFacilityRequestListRequest) (*facility.GetFacilityRequestListResponse, error) {
+	permission := common.Permission_UPDATE_FACILITY
+	isPermission := hasPermission(in.UserId, in.OrganizationId, permission)
+
+	if !isPermission {
+		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
+	}
+
+	result, err := fs.dbs.GetFacilityRequestList(in.OrganizationId)
+
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	return &facility.GetFacilityRequestListResponse{
+		Requests: result,
+	}, nil
 }
 
 func main() {

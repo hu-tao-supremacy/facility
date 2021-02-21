@@ -26,3 +26,21 @@ type FacilityRequest struct {
 	Start        time.Time
 	Finish       time.Time
 }
+
+// FacilityRequestWithInfo is joint model between Facility and FacilityRequest for database
+type FacilityRequestWithInfo struct {
+	ID             int64
+	EventID        int64
+	FacilityID     int64
+	Status         string
+	RejectReason   sql.NullString
+	Start          time.Time
+	Finish         time.Time
+	FaciltiyID     int64
+	OrganizationID int64
+	FacilityName   string
+	Latitude       float64
+	Longitude      float64
+	OperatingHours string
+	Description    string
+}

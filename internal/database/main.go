@@ -12,7 +12,9 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	common "onepass.app/facility/hts/common"
+	facility "onepass.app/facility/hts/facility"
 	model "onepass.app/facility/internal/model"
 	typing "onepass.app/facility/internal/typing"
 
@@ -247,6 +249,41 @@ func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityReq
 	default:
 		return convertFacilityRequestModelToProto(&facilityRequest), nil
 	}
+}
+
+// GetFacilityRequestList is a function to get facilityrequest list owned by the organization from database
+func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
+	var facilities []*model.FacilityRequestWithInfo
+
+	query := fmt.Sprintf(`
+	SELECT 
+	r.*,
+	f.organization_id, 
+	f.name as facility_name, 
+	f.latitude, 
+	f.longitude, 
+	f.organization_id, 
+	f.operating_hours,
+	f.description 
+	FROM facility_request as r
+	INNER JOIN facility as f
+	ON f.id = r.facility_id
+	WHERE organization_id = %d;`,
+		organizationID)
+	err := dbs.SQL.Select(&facilities, query)
+
+	if err != nil {
+		return nil, &typing.DatabaseError{
+			Err:        err,
+			StatusCode: codes.Internal,
+		}
+	}
+	result := make([]*facility.FacilityRequestWithFacilityInfo, len(facilities))
+	for i, item := range facilities {
+		result[i] = convertFacilityRequestWithInfoModelToProto(item)
+	}
+
+	return result, nil
 }
 
 func (dbs *DataService) ping() (string, error) {
