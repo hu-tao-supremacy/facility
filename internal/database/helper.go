@@ -2,6 +2,7 @@ package database
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/jmoiron/sqlx/types"
@@ -94,6 +95,40 @@ func convertFacilityRequestWithInfoModelToProto(data *model.FacilityRequestWithI
 	}, nil
 }
 
-func checkOperatingHours() {
+func checkDayIntegrity(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
+	dayStart := start.Day()
+	dayFinish := finish.Day()
+	if dayStart != dayFinish {
+		return &typing.InputError{Name: "Start and Finish must be the same day"}
+	}
 
+	HourStart, MinuteStart, secondStart := start.Clock()
+	HourFinish, MinuteFinish, secondFinish := finish.Clock()
+
+	if MinuteStart != 0 || secondStart != 0 || MinuteFinish != 0 || secondFinish != 0 {
+		return &typing.InputError{Name: "Minutes and seconds must be 0"}
+	}
+	if HourStart > HourFinish {
+		return &typing.InputError{Name: "Start must be ealier than Finish"}
+	}
+
+	weekDayStart := start.Weekday()
+	var operatingHour *common.OperatingHour
+	for _, value := range operatingHours {
+		day := common.DayOfWeek_value[value.Day.String()]
+		if day == int32(weekDayStart) {
+			operatingHour = value
+		}
+	}
+	if operatingHour == nil {
+		return &typing.InputError{Name: "Not in operatingHours"}
+	}
+
+	isStartAfterOpening := int(operatingHour.StartHour) < HourStart
+	isFinishBeforeClose := HourFinish < int(operatingHour.FinishHour)
+	if !isStartAfterOpening || !isFinishBeforeClose {
+		return &typing.InputError{Name: "Not in operatingHours"}
+	}
+
+	return nil
 }

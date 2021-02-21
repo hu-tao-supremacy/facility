@@ -33,7 +33,7 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	errorChannel := make(chan typing.CustomError)
 
 	go func() {
-		isTimeOverlap, err := fs.dbs.IsOverlapTime(in.FacilityId, in.Start, in.End)
+		isTimeOverlap, err := fs.dbs.IsOverlapTime(in.FacilityId, in.Start, in.End, true)
 		errorChannel <- err
 		overlapTimeChannel <- isTimeOverlap
 	}()
@@ -93,9 +93,10 @@ func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFaci
 	}()
 
 	go func() {
-		isTimeOverlap, err := fs.dbs.IsOverlapTime(facilityRequest.FacilityId, facilityRequest.Start, facilityRequest.Finish)
+		isTimeOverlap, err := fs.dbs.IsOverlapTime(facilityRequest.FacilityId, facilityRequest.Start, facilityRequest.Finish, false)
 		if err != nil {
 			errorChannel <- err
+			overlapTimeChannel <- true
 			return
 		}
 
