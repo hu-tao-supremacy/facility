@@ -1,4 +1,5 @@
 # Facility Service
+[![Go Report Card](https://goreportcard.com/badge/github.com/hu-tao-supremacy/facility)](https://goreportcard.com/report/github.com/hu-tao-supremacy/facility)
 
 1. Setting up PostgreSQL for dev environment
 ```
