@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	_ "github.com/lib/pq"
 	common "onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
@@ -21,6 +23,7 @@ func hasEvent(UserID int64, PermissionName int64, EventID int64) bool {
 
 // getEvent is mock function for Participant.getEvent
 func getEvent(EventID int64) common.Event {
+	// time.Sleep(1 * time.Second)
 	return common.Event{}
 }
 
@@ -30,25 +33,24 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	eventOwnerChannel := make(chan bool)
 	overlapTimeChannel := make(chan bool)
 	errorChannel := make(chan typing.CustomError)
-	go func() {
-		event := getEvent(in.EventId)
-		go func() {
-			havingPermissionChannel <- hasPermission(in.UserId, event.OrganizationId, permission)
-		}()
-		go func() {
-			eventOwnerChannel <- hasEvent(in.UserId, event.OrganizationId, in.EventId)
-		}()
-	}()
+
 	go func() {
 		isTimeOverlap, err := fs.dbs.IsOverlapTime(in.FacilityId, in.Start, in.End)
 		errorChannel <- err
 		overlapTimeChannel <- isTimeOverlap
 	}()
 
+	event := getEvent(in.EventId)
+	go func() {
+		havingPermissionChannel <- hasPermission(in.UserId, event.OrganizationId, permission)
+	}()
+	go func() {
+		eventOwnerChannel <- hasEvent(in.UserId, event.OrganizationId, in.EventId)
+	}()
 	isPermission := <-havingPermissionChannel
 	isEventOwner := <-eventOwnerChannel
-	isTimeOverlap := <-overlapTimeChannel
 	overlapError := <-errorChannel
+	isTimeOverlap := <-overlapTimeChannel
 
 	close(havingPermissionChannel)
 	close(eventOwnerChannel)
@@ -77,39 +79,37 @@ func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFaci
 	facilityOwnerChannel := make(chan bool)
 	errorChannel := make(chan typing.CustomError)
 
+	facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
+	if err != nil {
+		return false, err
+	}
+
 	go func() {
-		facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
-		if err != nil {
-			errorChannel <- err
-			return
-		}
+		facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
+		errorChannel <- err
+		facilityOwnerChannel <- facility.OrganizationId == in.OrganizationId
 
-		go func() {
-			facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
-			errorChannel <- err
-			facilityOwnerChannel <- facility.OrganizationId == in.OrganizationId
-
-			havingPermissionChannel <- hasPermission(in.UserId, facility.OrganizationId, permission)
-		}()
-
-		go func() {
-			isTimeOverlap, err := fs.dbs.IsOverlapTime(facilityRequest.FacilityId, facilityRequest.Start, facilityRequest.Finish)
-			errorChannel <- err
-			overlapTimeChannel <- isTimeOverlap
-		}()
-
+		havingPermissionChannel <- hasPermission(in.UserId, facility.OrganizationId, permission)
 	}()
 
+	go func() {
+		isTimeOverlap, err := fs.dbs.IsOverlapTime(facilityRequest.FacilityId, facilityRequest.Start, facilityRequest.Finish)
+		errorChannel <- err
+		overlapTimeChannel <- isTimeOverlap
+	}()
+	log.Println(">>")
+	err2 := <-errorChannel
+	log.Println("--")
+	err1 := <-errorChannel
+	log.Println("??")
+	isFacilityOwner := <-facilityOwnerChannel
 	isPermission := <-havingPermissionChannel
 	isTimeOverlap := <-overlapTimeChannel
-	err1 := <-errorChannel
-	err2 := <-errorChannel
-	isFacilityOwner := <-facilityOwnerChannel
 
-	close(havingPermissionChannel)
 	close(overlapTimeChannel)
 	close(errorChannel)
 	close(facilityOwnerChannel)
+	close(havingPermissionChannel)
 
 	if err1 != nil {
 		return false, err1
@@ -145,18 +145,18 @@ func isAbleToRejectFacilityRequest(fs *FacilityServer, in *facility.RejectFacili
 
 		go func() {
 			facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
-			errorChannel <- err
 			facilityOwnerChannel <- facility.OrganizationId == in.OrganizationId
-
 			go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permission) }()
+			errorChannel <- err
+
 		}()
 
 	}()
 
+	isFacilityOwner := <-facilityOwnerChannel
 	isPermission := <-havingPermissionChannel
 	err1 := <-errorChannel
 	err2 := <-errorChannel
-	isFacilityOwner := <-facilityOwnerChannel
 
 	close(havingPermissionChannel)
 	close(errorChannel)
