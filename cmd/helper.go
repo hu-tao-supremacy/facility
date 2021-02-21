@@ -14,9 +14,14 @@ func hasPermission(UserID int64, OrganizationID int64, PermissionName common.Per
 }
 
 // hasEvent is mock function for organization.hasEvent
-func hasEvent(UserID int64, OrganizationID int64, PermissionName int64) bool {
+func hasEvent(UserID int64, PermissionName int64, EventID int64) bool {
 	// time.Sleep(1 * time.Second)
 	return true
+}
+
+// getEvent is mock function for Participant.getEvent
+func getEvent(EventID int64) common.Event {
+	return common.Event{}
 }
 
 // isAbleToCreateFacilityRequest is function to check if a facility is able to book according to user psermission
@@ -25,12 +30,19 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	eventOwnerChannel := make(chan bool)
 	overlapTimeChannel := make(chan bool)
 	errorChannel := make(chan typing.CustomError)
-	go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permission) }()
-	go func() { eventOwnerChannel <- hasEvent(in.UserId, in.OrganizationId, in.EventId) }()
+	go func() {
+		event := getEvent(in.EventId)
+		go func() {
+			havingPermissionChannel <- hasPermission(in.UserId, event.OrganizationId, permission)
+		}()
+		go func() {
+			eventOwnerChannel <- hasEvent(in.UserId, event.OrganizationId, in.EventId)
+		}()
+	}()
 	go func() {
 		isTimeOverlap, err := fs.dbs.IsOverlapTime(in.FacilityId, in.Start, in.End)
-		overlapTimeChannel <- isTimeOverlap
 		errorChannel <- err
+		overlapTimeChannel <- isTimeOverlap
 	}()
 
 	isPermission := <-havingPermissionChannel
@@ -50,6 +62,7 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	if overlapError != nil {
 		return false, overlapError
 	}
+
 	if isTimeOverlap {
 		return false, &typing.AlreadyExistError{Name: "Facility is booked at that time"}
 	}
@@ -64,7 +77,6 @@ func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFaci
 	facilityOwnerChannel := make(chan bool)
 	errorChannel := make(chan typing.CustomError)
 
-	go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permission) }()
 	go func() {
 		facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
 		if err != nil {
@@ -76,6 +88,8 @@ func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFaci
 			facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
 			errorChannel <- err
 			facilityOwnerChannel <- facility.OrganizationId == in.OrganizationId
+
+			havingPermissionChannel <- hasPermission(in.UserId, facility.OrganizationId, permission)
 		}()
 
 		go func() {
@@ -122,7 +136,6 @@ func isAbleToRejectFacilityRequest(fs *FacilityServer, in *facility.RejectFacili
 	facilityOwnerChannel := make(chan bool)
 	errorChannel := make(chan typing.CustomError)
 
-	go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permission) }()
 	go func() {
 		facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
 		if err != nil {
@@ -134,6 +147,8 @@ func isAbleToRejectFacilityRequest(fs *FacilityServer, in *facility.RejectFacili
 			facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
 			errorChannel <- err
 			facilityOwnerChannel <- facility.OrganizationId == in.OrganizationId
+
+			go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permission) }()
 		}()
 
 	}()
