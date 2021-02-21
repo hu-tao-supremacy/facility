@@ -229,14 +229,20 @@ func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityReq
 	`, RequestID)
 	err := dbs.SQL.Get(&facilityRequest, query)
 
-	if err != nil {
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, &typing.DatabaseError{
+			Err:        &typing.NotFoundError{Name: "facility"},
+			StatusCode: codes.NotFound,
+		}
+	case err != nil:
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
 		}
+	default:
+		return convertFacilityRequestModelToProto(&facilityRequest), nil
 	}
-
-	return convertFacilityRequestModelToProto(&facilityRequest), nil
 }
 
 func (dbs *DataService) ping() (string, error) {

@@ -47,6 +47,7 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	go func() {
 		eventOwnerChannel <- hasEvent(in.UserId, event.OrganizationId, in.EventId)
 	}()
+
 	isPermission := <-havingPermissionChannel
 	isEventOwner := <-eventOwnerChannel
 	overlapError := <-errorChannel
@@ -74,52 +75,47 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 
 // isAbleToApproveFacilityRequest is function to check if a facility is able to be approved according to user psermission
 func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFacilityRequestRequest, permission common.Permission) (bool, typing.CustomError) {
-	havingPermissionChannel := make(chan bool)
-	overlapTimeChannel := make(chan bool)
-	facilityOwnerChannel := make(chan bool)
-	errorChannel := make(chan typing.CustomError)
-
 	facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
 	if err != nil {
 		return false, err
 	}
 
+	havingPermissionChannel := make(chan bool)
+	overlapTimeChannel := make(chan bool)
+	errorChannel := make(chan typing.CustomError, 2)
+
 	go func() {
 		facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
-		errorChannel <- err
-		facilityOwnerChannel <- facility.OrganizationId == in.OrganizationId
+		if err != nil {
+			errorChannel <- err
+			return
+		}
+		log.Println(in.UserId, facility.OrganizationId, permission)
 
 		havingPermissionChannel <- hasPermission(in.UserId, facility.OrganizationId, permission)
 	}()
 
 	go func() {
 		isTimeOverlap, err := fs.dbs.IsOverlapTime(facilityRequest.FacilityId, facilityRequest.Start, facilityRequest.Finish)
-		errorChannel <- err
+		if err != nil {
+			errorChannel <- err
+			return
+		}
+
 		overlapTimeChannel <- isTimeOverlap
 	}()
-	log.Println(">>")
-	err2 := <-errorChannel
-	log.Println("--")
-	err1 := <-errorChannel
-	log.Println("??")
-	isFacilityOwner := <-facilityOwnerChannel
+
 	isPermission := <-havingPermissionChannel
 	isTimeOverlap := <-overlapTimeChannel
 
-	close(overlapTimeChannel)
 	close(errorChannel)
-	close(facilityOwnerChannel)
+	for err := range errorChannel {
+		return false, err
+	}
+	close(overlapTimeChannel)
 	close(havingPermissionChannel)
 
-	if err1 != nil {
-		return false, err1
-	}
-
-	if err2 != nil {
-		return false, err2
-	}
-
-	if !(isPermission && isFacilityOwner) {
+	if !isPermission {
 		return false, &typing.PermissionError{Type: permission}
 	}
 
@@ -132,45 +128,22 @@ func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFaci
 
 // isAbleToRejectFacilityRequest is function to check if a facility is able to be rejected according to user psermission
 func isAbleToRejectFacilityRequest(fs *FacilityServer, in *facility.RejectFacilityRequestRequest, permission common.Permission) (bool, typing.CustomError) {
-	havingPermissionChannel := make(chan bool)
-	facilityOwnerChannel := make(chan bool)
-	errorChannel := make(chan typing.CustomError)
-
-	go func() {
-		facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
-		if err != nil {
-			errorChannel <- err
-			return
-		}
-
-		go func() {
-			facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
-			facilityOwnerChannel <- facility.OrganizationId == in.OrganizationId
-			go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permission) }()
-			errorChannel <- err
-
-		}()
-
-	}()
-
-	isFacilityOwner := <-facilityOwnerChannel
-	isPermission := <-havingPermissionChannel
-	err1 := <-errorChannel
-	err2 := <-errorChannel
-
-	close(havingPermissionChannel)
-	close(errorChannel)
-	close(facilityOwnerChannel)
-
-	if err1 != nil {
-		return false, err1
+	facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
+	if err != nil {
+		return false, err
 	}
 
-	if err2 != nil {
-		return false, err2
+	facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
+	if err != nil {
+		return false, err
 	}
 
-	if !(isPermission && isFacilityOwner) {
+	isPermission := hasPermission(in.UserId, facility.OrganizationId, permission)
+	if err != nil {
+		return false, err
+	}
+
+	if !isPermission {
 		return false, &typing.PermissionError{Type: permission}
 	}
 
