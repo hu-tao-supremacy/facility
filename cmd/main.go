@@ -30,7 +30,7 @@ func (fs *FacilityServer) GetFacilityList(ctx context.Context, in *facility.GetF
 	list, err := fs.dbs.GetFacilityList(in.OrganizationId)
 
 	if err != nil {
-		return nil, status.Error(err.StatusCode, err.Error())
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	return &facility.GetFacilityListResponse{
@@ -43,7 +43,7 @@ func (fs *FacilityServer) GetAvailableFacilityList(ctx context.Context, in *empt
 	list, err := fs.dbs.GetAvailableFacilityList()
 
 	if err != nil {
-		return nil, status.Error(err.StatusCode, err.Error())
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	return &facility.GetAvailableFacilityListResponse{
@@ -56,7 +56,7 @@ func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetF
 	result, err := fs.dbs.GetFacilityInfo(in.FacilityId)
 
 	if err != nil {
-		return nil, status.Error(err.StatusCode, err.Error())
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	return result, nil
@@ -72,12 +72,12 @@ func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facili
 
 	facilityRequest, err := fs.dbs.GetFacilityRequest(in.RequestId)
 	if err != nil {
-		return nil, status.Error(err.StatusCode, err.Error())
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	isTimeOverlap, err := fs.dbs.IsOverLapTime(facilityRequest.FacilityId, facilityRequest.Start, facilityRequest.Finish)
 	if err != nil {
-		return nil, status.Error(err.StatusCode, err.Error())
+		return nil, status.Error(err.Code(), err.Error())
 	}
 	if isTimeOverlap {
 		return nil, status.Error(codes.AlreadyExists, (&typing.AlreadyExistError{Name: "Facility is booked at that time"}).Error())
@@ -85,7 +85,7 @@ func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facili
 
 	err = fs.dbs.ApproveFacilityRequest(in.RequestId)
 	if err != nil {
-		return nil, status.Error(err.StatusCode, err.Error())
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	description := fmt.Sprintf("Request ID: %d has been aproved", in.RequestId)
@@ -106,7 +106,7 @@ func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facilit
 	err := fs.dbs.RejectFacilityRequest(in.RequestId, in.Reason)
 
 	if err != nil {
-		return nil, status.Error(err.StatusCode, err.Error())
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	description := fmt.Sprintf("Request ID: %d has been rejected", in.RequestId)
@@ -119,43 +119,16 @@ func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facilit
 // CreateFacilityRequest is a function to create facility’s request by id
 func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facility.CreateFacilityRequestRequest) (*common.FacilityRequest, error) {
 	permssion := common.Permission_UPDATE_EVENT
-	havingPermissionChannel := make(chan bool)
-	eventOwnerChannel := make(chan bool)
-	overlapTimeChannel := make(chan bool)
-	errorChannel := make(chan *typing.DatabaseError)
-	go func() { havingPermissionChannel <- hasPermission(in.UserId, in.OrganizationId, permssion) }()
-	go func() { eventOwnerChannel <- hasEvent(in.UserId, in.OrganizationId, in.EventId) }()
-	go func() {
-		isTimeOverlap, err := fs.dbs.IsOverLapTime(in.FacilityId, in.Start, in.End)
-		overlapTimeChannel <- isTimeOverlap
-		errorChannel <- err
-	}()
+	isConditionPassed, err := isAbleToCreateFacilityRequest(fs, in, permssion)
 
-	isPermission := <-havingPermissionChannel
-	isEventOwner := <-eventOwnerChannel
-	isTimeOverlap := <-overlapTimeChannel
-	overalpErr := <-errorChannel
-
-	close(havingPermissionChannel)
-	close(eventOwnerChannel)
-	close(overlapTimeChannel)
-	close(errorChannel)
-
-	if !(isPermission && isEventOwner) {
-		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permssion}).Error())
-	}
-
-	if overalpErr != nil {
-		return nil, status.Error(codes.Internal, overalpErr.Error())
-	}
-	if isTimeOverlap {
-		return nil, status.Error(codes.AlreadyExists, (&typing.AlreadyExistError{Name: "Facility is booked at that time"}).Error())
+	if !isConditionPassed || err != nil {
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	result, err := fs.dbs.CreateFacilityRequest(in.EventId, in.FacilityId, in.Start, in.End)
 
 	if err != nil {
-		return nil, status.Error(err.StatusCode, err.Error())
+		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	return result, nil

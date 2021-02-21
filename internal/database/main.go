@@ -26,7 +26,7 @@ type DataService struct {
 }
 
 // GetFacilityList is a function to get facility list owned by the organization from database
-func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facility, *typing.DatabaseError) {
+func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facility, typing.CustomError) {
 	var facilities []*model.Facility
 	query := fmt.Sprintf(`
 	SELECT * 
@@ -51,7 +51,7 @@ func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facilit
 }
 
 // GetAvailableFacilityList is a function to list all available facilities
-func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, *typing.DatabaseError) {
+func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, typing.CustomError) {
 	var facilities []*model.Facility
 	query := `
 	SELECT * 
@@ -74,7 +74,7 @@ func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, *typing.
 }
 
 // GetFacilityInfo is a function to get facility’s information by id
-func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, *typing.DatabaseError) {
+func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, typing.CustomError) {
 	var _facility model.Facility
 	query := fmt.Sprintf(`
 	SELECT * 
@@ -99,7 +99,7 @@ func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, *ty
 	}
 }
 
-func (dbs *DataService) updateFacilityRequest(requestID int64, status common.Status, reason *wrapperspb.StringValue) *typing.DatabaseError {
+func (dbs *DataService) updateFacilityRequest(requestID int64, status common.Status, reason *wrapperspb.StringValue) typing.CustomError {
 	var queryReason string
 	if reason != nil {
 		queryReason = ", reject_reason=:reason "
@@ -140,17 +140,17 @@ func (dbs *DataService) updateFacilityRequest(requestID int64, status common.Sta
 }
 
 // RejectFacilityRequest is a function to reject facility’s request by id
-func (dbs *DataService) RejectFacilityRequest(requestID int64, reason *wrapperspb.StringValue) *typing.DatabaseError {
+func (dbs *DataService) RejectFacilityRequest(requestID int64, reason *wrapperspb.StringValue) typing.CustomError {
 	return dbs.updateFacilityRequest(requestID, common.Status_REJECTED, reason)
 }
 
 // ApproveFacilityRequest is a function to approve facility request
-func (dbs *DataService) ApproveFacilityRequest(requestID int64) *typing.DatabaseError {
+func (dbs *DataService) ApproveFacilityRequest(requestID int64) typing.CustomError {
 	return dbs.updateFacilityRequest(requestID, common.Status_APPROVED, nil)
 }
 
 // CreateFacilityRequest is a function to create facilityRequest
-func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (*common.FacilityRequest, *typing.DatabaseError) {
+func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (*common.FacilityRequest, typing.CustomError) {
 	var id int64
 	query := `
 	INSERT INTO facility_request (event_id, facility_id, status, start, finish) 
@@ -188,7 +188,7 @@ func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, s
 }
 
 // IsOverLapTime is function to check whether time is overlap with already booked facility
-func (dbs *DataService) IsOverLapTime(facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (bool, *typing.DatabaseError) {
+func (dbs *DataService) IsOverLapTime(facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (bool, typing.CustomError) {
 	var count int64
 	startTime, _ := ptypes.Timestamp(start)
 	finishTime, _ := ptypes.Timestamp(finish)
@@ -218,7 +218,7 @@ func (dbs *DataService) IsOverLapTime(facilityID int64, start *timestamppb.Times
 }
 
 // GetFacilityRequest is function to get facility request by id
-func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityRequest, *typing.DatabaseError) {
+func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityRequest, typing.CustomError) {
 	var facilityRequest model.FacilityRequest
 
 	query := fmt.Sprintf(`
