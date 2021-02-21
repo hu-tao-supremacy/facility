@@ -102,6 +102,10 @@ func checkDayIntegrity(start time.Time, finish time.Time, operatingHours []*comm
 		return &typing.InputError{Name: "Start and Finish must be the same day"}
 	}
 
+	if dayStart > time.Now().Day()+30 {
+		return &typing.InputError{Name: "Booking date can only be within 30 days period from today"}
+	}
+
 	HourStart, MinuteStart, secondStart := start.Clock()
 	HourFinish, MinuteFinish, secondFinish := finish.Clock()
 
