@@ -147,23 +147,7 @@ func isAbleToRejectFacilityRequest(fs *FacilityServer, in *facility.RejectFacili
 	return true, nil
 }
 
-func isAbleToViewFacilityRequest(fs *FacilityServer, userID int64, facilityRequest *common.FacilityRequest) (bool, common.Permission, typing.CustomError) {
-	facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
-	if err != nil {
-		return false, 0, err
-	}
-
-	permissionEventChannel := make(chan bool)
-	permissionFacilityChannel := make(chan bool)
-
-	go func() {
-		event := getEvent(facilityRequest.EventId)
-		permissionEventChannel <- hasPermission(userID, event.OrganizationId, common.Permission_UPDATE_EVENT)
-	}()
-	go func() {
-		permissionFacilityChannel <- hasPermission(userID, facility.OrganizationId, common.Permission_UPDATE_FACILITY)
-	}()
-
+func handlePermissionChannel(permissionEventChannel <-chan bool, permissionFacilityChannel <-chan bool) (bool, common.Permission, typing.CustomError) {
 	var isPermissionEvent bool
 	for i := 0; i < 2; i++ {
 		select {
@@ -188,6 +172,28 @@ func isAbleToViewFacilityRequest(fs *FacilityServer, userID int64, facilityReque
 	return false, common.Permission_UPDATE_FACILITY, nil
 }
 
+// isAbleToViewFacilityRequest a function to check whether user can view the targed facility request
+func isAbleToViewFacilityRequest(fs *FacilityServer, userID int64, facilityRequest *common.FacilityRequest) (bool, common.Permission, typing.CustomError) {
+	facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
+	if err != nil {
+		return false, 0, err
+	}
+
+	permissionEventChannel := make(chan bool)
+	permissionFacilityChannel := make(chan bool)
+
+	go func() {
+		event := getEvent(facilityRequest.EventId)
+		permissionEventChannel <- hasPermission(userID, event.OrganizationId, common.Permission_UPDATE_EVENT)
+	}()
+	go func() {
+		permissionFacilityChannel <- hasPermission(userID, facility.OrganizationId, common.Permission_UPDATE_FACILITY)
+	}()
+
+	return handlePermissionChannel(permissionEventChannel, permissionFacilityChannel)
+}
+
+// isAbleToViewFacilityRequestFull a function to check whether user can view the targed facility request
 func isAbleToViewFacilityRequestFull(fs *FacilityServer, userID int64, facilityRequestFull *facility.FacilityRequestWithFacilityInfo) (bool, common.Permission, typing.CustomError) {
 	event := getEvent(facilityRequestFull.EventId)
 	permissionEventChannel := make(chan bool)
@@ -200,26 +206,5 @@ func isAbleToViewFacilityRequestFull(fs *FacilityServer, userID int64, facilityR
 		permissionFacilityChannel <- hasPermission(userID, facilityRequestFull.OrganizationId, common.Permission_UPDATE_FACILITY)
 	}()
 
-	var isPermissionEvent bool
-	for i := 0; i < 2; i++ {
-		select {
-		case isPermissionEvent := <-permissionEventChannel:
-			if isPermissionEvent {
-				return true, 0, nil
-			}
-			isPermissionEvent = false
-
-		case isPermissionFacility := <-permissionFacilityChannel:
-			if isPermissionFacility {
-				return true, 0, nil
-			}
-			isPermissionFacility = false
-
-		}
-	}
-
-	if !isPermissionEvent {
-		return false, common.Permission_UPDATE_EVENT, nil
-	}
-	return false, common.Permission_UPDATE_FACILITY, nil
+	return handlePermissionChannel(permissionEventChannel, permissionFacilityChannel)
 }
