@@ -65,8 +65,7 @@ func (fs *FacilityServer) GetFacilityInfo(ctx context.Context, in *facility.GetF
 
 // ApproveFacilityRequest is a function to reject facility’s request by id
 func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facility.ApproveFacilityRequestRequest) (*common.Result, error) {
-	permission := common.Permission_UPDATE_FACILITY
-	isConditionPassed, err := isAbleToApproveFacilityRequest(fs, in, permission)
+	isConditionPassed, err := isAbleToApproveFacilityRequest(fs, in)
 
 	if !isConditionPassed || err != nil {
 		return nil, status.Error(err.Code(), err.Error())
@@ -86,8 +85,7 @@ func (fs *FacilityServer) ApproveFacilityRequest(ctx context.Context, in *facili
 
 // RejectFacilityRequest is a function to reject facility’s request by id
 func (fs *FacilityServer) RejectFacilityRequest(ctx context.Context, in *facility.RejectFacilityRequestRequest) (*common.Result, error) {
-	permission := common.Permission_UPDATE_FACILITY
-	isConditionPassed, err := isAbleToRejectFacilityRequest(fs, in, permission)
+	isConditionPassed, err := isAbleToRejectFacilityRequest(fs, in)
 	if !isConditionPassed || err != nil {
 		return nil, status.Error(err.Code(), err.Error())
 	}
