@@ -268,7 +268,6 @@ func (dbs *DataService) ConnectToDB() {
 	password := os.Getenv("POSTGRES_PASSWORD")
 	database := os.Getenv("POSTGRES_DB")
 	port := os.Getenv("POSTGRES_PORT")
-
 	dsn := fmt.Sprintf("user=%s password=%s host=%s database=%s port=%s sslmode=disable", user, password, host, database, port)
 	db, err := sqlx.Connect("postgres", dsn)
 
