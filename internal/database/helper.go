@@ -111,7 +111,7 @@ func checkDayIntegrity(start time.Time, finish time.Time, operatingHours []*comm
 	HourFinish, MinuteFinish, secondFinish := finish.Clock()
 
 	if dayStart < now.Day() || HourStart < now.Hour() {
-		return &typing.InputError{Name: "Booking time must be more than now"}
+		return &typing.InputError{Name: "Booking time must not be in the past"}
 	}
 	if MinuteStart != 0 || secondStart != 0 || MinuteFinish != 0 || secondFinish != 0 {
 		return &typing.InputError{Name: "Minutes and seconds must be 0"}
