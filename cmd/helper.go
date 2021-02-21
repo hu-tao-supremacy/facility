@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	_ "github.com/lib/pq"
 	common "onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
@@ -90,7 +88,6 @@ func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFaci
 			errorChannel <- err
 			return
 		}
-		log.Println(in.UserId, facility.OrganizationId, permission)
 
 		havingPermissionChannel <- hasPermission(in.UserId, facility.OrganizationId, permission)
 	}()
