@@ -11,7 +11,7 @@ func hasPermission(UserID int64, OrganizationID int64, PermissionName common.Per
 	return true
 }
 
-// hasPermission is mock function for account.hasPermission
+// hasEvent is mock function for organization.hasEvent
 func hasEvent(UserID int64, OrganizationID int64, PermissionName int64) bool {
 	// time.Sleep(1 * time.Second)
 	return true
