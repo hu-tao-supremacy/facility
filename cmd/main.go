@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math"
 	"net"
 	"os"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
 	database "onepass.app/facility/internal/database"
+	"onepass.app/facility/internal/helper"
 	typing "onepass.app/facility/internal/typing"
 
 	_ "github.com/lib/pq"
@@ -223,8 +223,7 @@ func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *fa
 	}
 
 	// should be change in other helper too
-	day := int(math.Ceil(finishTime.Sub(startTime).Hours()/24)) + 1
-	log.Println(day)
+	day := helper.DayDifference(&startTime, &finishTime) + 1
 	if day <= 0 {
 		return nil, &typing.InputError{Name: "Start must be earlier than Finish"}
 	}
@@ -261,7 +260,6 @@ func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *fa
 			requestFinishHour := requestFinishTime.Hour()
 			for i, item := range result[index].Items {
 				currentHour := int(startHour) + i
-				log.Println(requestStartHour, requestFinishHour, currentHour)
 				if item && currentHour <= requestStartHour || currentHour >= requestFinishHour {
 					result[index].Items[i] = false
 				}

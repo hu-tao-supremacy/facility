@@ -11,6 +11,7 @@ import (
 
 	common "onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
+	"onepass.app/facility/internal/helper"
 	model "onepass.app/facility/internal/model"
 	typing "onepass.app/facility/internal/typing"
 )
@@ -95,25 +96,27 @@ func convertFacilityRequestWithInfoModelToProto(data *model.FacilityRequestWithI
 }
 
 func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
-	dayStart := start.Day()
 	now := time.Now()
-	if dayStart != finish.Day() {
+
+	if helper.DayDifference(&start, &finish) == 0 {
 		return &typing.InputError{Name: "Start and Finish must be the same day"}
 	}
 
-	if dayStart > now.Day()+30 {
+	if helper.DayDifference(&now, &start) <= 30 {
 		return &typing.InputError{Name: "Booking date can only be within 30 days period from today"}
 	}
 
 	HourStart, MinuteStart, secondStart := start.Clock()
 	HourFinish, MinuteFinish, secondFinish := finish.Clock()
 
-	if dayStart < now.Day() || HourStart < now.Hour() {
+	// must fix
+	if helper.DayDifference(&now, &start) < 0 || HourStart < now.Hour() {
 		return &typing.InputError{Name: "Booking time must not be in the past"}
 	}
 	if MinuteStart != 0 || secondStart != 0 || MinuteFinish != 0 || secondFinish != 0 {
 		return &typing.InputError{Name: "Minutes and seconds must be 0"}
 	}
+
 	if HourStart > HourFinish {
 		return &typing.InputError{Name: "Start must be earlier than Finish"}
 	}
