@@ -95,7 +95,7 @@ func convertFacilityRequestWithInfoModelToProto(data *model.FacilityRequestWithI
 	}, nil
 }
 
-func checkDayIntegrity(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
+func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
 	dayStart := start.Day()
 	dayFinish := finish.Day()
 	now := time.Now()

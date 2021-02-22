@@ -221,7 +221,7 @@ func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Times
 	startTime, _ := ptypes.Timestamp(start)
 	finishTime, _ := ptypes.Timestamp(finish)
 	if checkTimeIntegrity {
-		inputError := checkDayIntegrity(startTime, finishTime, facility.OperatingHours)
+		inputError := checkDateInput(startTime, finishTime, facility.OperatingHours)
 		if inputError != nil {
 			return false, inputError
 		}
