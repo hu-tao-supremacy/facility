@@ -24,7 +24,7 @@ jobs:
           # working-directory: somedir
 
           # Optional: golangci-lint command line arguments.
-          args: --enable gofmt gocyclo golint misspell lll gosec ifshort gocritic
+          args: -E gofmt -E gocyclo -E golint -E misspell -E lll -E gosec -E ifshort -E gocritic
 
           # Optional: show only new issues if it's a pull request. The default value is `false`.
           # only-new-issues: true
