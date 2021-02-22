@@ -6,7 +6,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	empty "github.com/golang/protobuf/ptypes/empty"
 
 	"google.golang.org/grpc"
@@ -197,6 +199,58 @@ func (fs *FacilityServer) GetFacilityRequestStatusFull(ctx context.Context, in *
 	}
 
 	return result, nil
+}
+
+// GetAvailableTimeOfFacility is a function to get available of facility
+func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *facility.GetAvailableTimeOfFacilityRequest) (*facility.GetAvailableTimeOfFacilityResponse, error) {
+	facilityRequests, err := fs.dbs.GetApprovedFacilityRequestList(in.FacilityId, in.Start, in.End)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	facilityInfo, err := fs.dbs.GetFacilityInfo(in.FacilityId)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	startTime, _ := ptypes.Timestamp(in.Start)
+	finishTime, _ := ptypes.Timestamp(in.End)
+
+	operationHours := map[int32]*common.OperatingHour{}
+	for _, operatingHour := range facilityInfo.OperatingHours {
+		operationHours[common.DayOfWeek_value[operatingHour.Day.String()]] = operatingHour
+	}
+
+	day := startTime.Day() - finishTime.Day()
+	result := make([]*facility.GetAvailableTimeOfFacilityResponse_Day, day)
+	var currentDay time.Time
+	for i := range result {
+		currentDay = startTime.AddDate(0, 0, i)
+		startHour := operationHours[int32(currentDay.Weekday())].StartHour
+		finishHour := operationHours[int32(currentDay.Weekday())].FinishHour
+		hour := finishHour - startHour
+		avaialbleTime := make([]bool, hour)
+		for range avaialbleTime {
+			avaialbleTime[i] = true
+		}
+		result[i] = &facility.GetAvailableTimeOfFacilityResponse_Day{Items: avaialbleTime}
+	}
+
+	for _, request := range facilityRequests {
+		if request.Finish.Seconds >= in.Start.Seconds && request.Start.Seconds <= in.End.Seconds {
+			requestStartTime, _ := ptypes.Timestamp(request.Start)
+			index := requestStartTime.Day() - startTime.Day()
+			for i, item := range result[index].Items {
+				requestFinishTime, _ := ptypes.Timestamp(request.Finish)
+				currentHour := requestStartTime.Hour() + i
+				if item && currentHour <= requestStartTime.Hour() || requestFinishTime.Hour() >= currentHour {
+					result[index].Items[i] = false
+				}
+			}
+		}
+	}
+
+	return &facility.GetAvailableTimeOfFacilityResponse{Day: result}, nil
 }
 
 func main() {
