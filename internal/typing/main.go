@@ -51,3 +51,13 @@ func (e *AlreadyExistError) Error() string { return e.Name + ": already exist" }
 
 // Code is for getting code
 func (e *AlreadyExistError) Code() codes.Code { return codes.AlreadyExists }
+
+// InputError is error for input mismatch entry
+type InputError struct {
+	Name string
+}
+
+func (e *InputError) Error() string { return "input error: " + e.Name }
+
+// Code is for getting code
+func (e *InputError) Code() codes.Code { return codes.InvalidArgument }

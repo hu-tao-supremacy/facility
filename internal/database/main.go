@@ -59,7 +59,11 @@ func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facilit
 	}
 	result := make([]*common.Facility, len(facilities))
 	for i, item := range facilities {
-		result[i] = convertFacilityModelToProto(item)
+		value, err := convertFacilityModelToProto(item)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = value
 	}
 
 	return result, nil
@@ -82,7 +86,11 @@ func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, typing.C
 
 	result := make([]*common.Facility, len(facilities))
 	for i, item := range facilities {
-		result[i] = convertFacilityModelToProto(item)
+		value, err := convertFacilityModelToProto(item)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = value
 	}
 
 	return result, nil
@@ -110,7 +118,7 @@ func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, typ
 			StatusCode: codes.Internal,
 		}
 	default:
-		return convertFacilityModelToProto(&_facility), nil
+		return convertFacilityModelToProto(&_facility)
 	}
 }
 
@@ -203,8 +211,8 @@ func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, s
 }
 
 // IsOverlapTime is function to check whether time is overlap with already booked facility
-func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) (bool, typing.CustomError) {
-	_, facilityNotFoundError := dbs.GetFacilityInfo(facilityID)
+func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp, checkTimeIntegrity bool) (bool, typing.CustomError) {
+	facility, facilityNotFoundError := dbs.GetFacilityInfo(facilityID)
 	if facilityNotFoundError != nil {
 		return false, facilityNotFoundError
 	}
@@ -212,6 +220,12 @@ func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Times
 	var count int64
 	startTime, _ := ptypes.Timestamp(start)
 	finishTime, _ := ptypes.Timestamp(finish)
+	if checkTimeIntegrity {
+		inputError := checkDayIntegrity(startTime, finishTime, facility.OperatingHours)
+		if inputError != nil {
+			return false, inputError
+		}
+	}
 
 	layoutTime := "2006-01-02 15:04:05"
 	startTimeText := startTime.Format(layoutTime)
@@ -258,7 +272,7 @@ func (dbs *DataService) GetFacilityRequestStatusFull(RequestID int64) (*facility
 			StatusCode: codes.Internal,
 		}
 	default:
-		return convertFacilityRequestWithInfoModelToProto(&facilityRequest), nil
+		return convertFacilityRequestWithInfoModelToProto(&facilityRequest)
 	}
 }
 
@@ -307,7 +321,11 @@ func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facilit
 	}
 	result := make([]*facility.FacilityRequestWithFacilityInfo, len(facilities))
 	for i, item := range facilities {
-		result[i] = convertFacilityRequestWithInfoModelToProto(item)
+		value, err := convertFacilityRequestWithInfoModelToProto(item)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = value
 	}
 
 	return result, nil
@@ -330,7 +348,11 @@ func (dbs *DataService) GetFacilityRequestsListStatus(eventID int64) ([]*facilit
 	}
 	result := make([]*facility.FacilityRequestWithFacilityInfo, len(facilities))
 	for i, item := range facilities {
-		result[i] = convertFacilityRequestWithInfoModelToProto(item)
+		value, err := convertFacilityRequestWithInfoModelToProto(item)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = value
 	}
 
 	return result, nil
