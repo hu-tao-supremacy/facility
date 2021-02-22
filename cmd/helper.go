@@ -233,7 +233,8 @@ func isAbleToGetAvailableTimeOfFacility(startTime time.Time, finishTime time.Tim
 	return nil
 }
 
-func generateFacilityAvailabilityResult(startTime time.Time, finishTime time.Time, operatingHours map[int32]*common.OperatingHour, facilityRequests []*common.FacilityRequest) (*facility.GetAvailableTimeOfFacilityResponse, error) {
+// createResultEmptyArray is function to create 2D empy boolean array according to input
+func createResultEmptyArray(startTime time.Time, finishTime time.Time, operatingHours map[int32]*common.OperatingHour) []*facility.GetAvailableTimeOfFacilityResponse_Day {
 	day := helper.DayDifference(startTime, finishTime) + 1
 	result := make([]*facility.GetAvailableTimeOfFacilityResponse_Day, day)
 	var currentDay time.Time
@@ -254,6 +255,11 @@ func generateFacilityAvailabilityResult(startTime time.Time, finishTime time.Tim
 		result[i] = &facility.GetAvailableTimeOfFacilityResponse_Day{Items: avaialbleTime}
 	}
 
+	return result
+}
+
+// generateFacilityAvailabilityResult is a function to genereate facility request from empty 2D boolean array
+func generateFacilityAvailabilityResult(resultArray []*facility.GetAvailableTimeOfFacilityResponse_Day, startTime time.Time, operatingHours map[int32]*common.OperatingHour, facilityRequests []*common.FacilityRequest) (*facility.GetAvailableTimeOfFacilityResponse, error) {
 	for _, request := range facilityRequests {
 		requestStartTime, _ := ptypes.Timestamp(request.Start)
 		requestFinishTime, _ := ptypes.Timestamp(request.Finish)
@@ -265,14 +271,14 @@ func generateFacilityAvailabilityResult(startTime time.Time, finishTime time.Tim
 		startHour := operatiingHour.StartHour
 		requestStartHour := requestStartTime.Hour()
 		requestFinishHour := requestFinishTime.Hour()
-		for i, item := range result[index].Items {
+		for i, item := range resultArray[index].Items {
 			currentHour := int(startHour) + i
 			if item && currentHour <= requestStartHour || currentHour >= requestFinishHour {
-				result[index].Items[i] = false
+				resultArray[index].Items[i] = false
 			}
 		}
 
 	}
 
-	return &facility.GetAvailableTimeOfFacilityResponse{Day: result}, nil
+	return &facility.GetAvailableTimeOfFacilityResponse{Day: resultArray}, nil
 }

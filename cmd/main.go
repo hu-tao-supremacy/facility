@@ -224,7 +224,8 @@ func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *fa
 		operatingHours[common.DayOfWeek_value[operatingHour.Day.String()]] = operatingHour
 	}
 
-	return generateFacilityAvailabilityResult(startTime, finishTime, operatingHours, facilityRequests)
+	emptyResultArray := createResultEmptyArray(startTime, finishTime, operatingHours)
+	return generateFacilityAvailabilityResult(emptyResultArray, startTime, operatingHours, facilityRequests)
 }
 
 func main() {
