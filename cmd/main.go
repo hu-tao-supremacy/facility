@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"os"
 	"time"
@@ -216,22 +217,32 @@ func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *fa
 	startTime, _ := ptypes.Timestamp(in.Start)
 	finishTime, _ := ptypes.Timestamp(in.End)
 
-	operationHours := map[int32]*common.OperatingHour{}
+	operatingHours := map[int32]*common.OperatingHour{}
 	for _, operatingHour := range facilityInfo.OperatingHours {
-		operationHours[common.DayOfWeek_value[operatingHour.Day.String()]] = operatingHour
+		operatingHours[common.DayOfWeek_value[operatingHour.Day.String()]] = operatingHour
 	}
 
-	day := startTime.Day() - finishTime.Day()
+	// should be change in other helper too
+	day := int(math.Ceil(finishTime.Sub(startTime).Hours()/24)) + 1
+	log.Println(day)
+	if day <= 0 {
+		return nil, &typing.InputError{Name: "Start must be earlier than Finish"}
+	}
 	result := make([]*facility.GetAvailableTimeOfFacilityResponse_Day, day)
 	var currentDay time.Time
 	for i := range result {
 		currentDay = startTime.AddDate(0, 0, i)
-		startHour := operationHours[int32(currentDay.Weekday())].StartHour
-		finishHour := operationHours[int32(currentDay.Weekday())].FinishHour
+		operationHour := operatingHours[int32(currentDay.Weekday())]
+		if operationHour == nil {
+			result[i] = &facility.GetAvailableTimeOfFacilityResponse_Day{Items: nil}
+			continue
+		}
+		startHour := operationHour.StartHour
+		finishHour := operationHour.FinishHour
 		hour := finishHour - startHour
 		avaialbleTime := make([]bool, hour)
-		for range avaialbleTime {
-			avaialbleTime[i] = true
+		for j := range avaialbleTime {
+			avaialbleTime[j] = true
 		}
 		result[i] = &facility.GetAvailableTimeOfFacilityResponse_Day{Items: avaialbleTime}
 	}
@@ -241,12 +252,17 @@ func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *fa
 			requestStartTime, _ := ptypes.Timestamp(request.Start)
 			requestFinishTime, _ := ptypes.Timestamp(request.Finish)
 			index := requestStartTime.Day() - startTime.Day()
-			startHour := requestStartTime
+			operatiingHour := operatingHours[int32(requestStartTime.Weekday())]
+			if operatiingHour == nil {
+				continue
+			}
+			startHour := operatiingHour.StartHour
 			requestStartHour := requestStartTime.Hour()
 			requestFinishHour := requestFinishTime.Hour()
 			for i, item := range result[index].Items {
-				currentHour := startTime.Hour() + i
-				if item && currentHour <= requestStartHour || requestFinishHour >= currentHour {
+				currentHour := int(startHour) + i
+				log.Println(requestStartHour, requestFinishHour, currentHour)
+				if item && currentHour <= requestStartHour || currentHour >= requestFinishHour {
 					result[index].Items[i] = false
 				}
 			}

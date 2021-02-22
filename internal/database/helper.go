@@ -130,8 +130,8 @@ func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.
 		return &typing.InputError{Name: "Not in operatingHours"}
 	}
 
-	isStartAfterOpening := int(operatingHour.StartHour) < HourStart
-	isFinishBeforeClose := HourFinish < int(operatingHour.FinishHour)
+	isStartAfterOpening := int(operatingHour.StartHour) <= HourStart
+	isFinishBeforeClose := HourFinish <= int(operatingHour.FinishHour)
 	if !isStartAfterOpening || !isFinishBeforeClose {
 		return &typing.InputError{Name: "Not in operatingHours"}
 	}

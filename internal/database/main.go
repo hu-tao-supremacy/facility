@@ -39,7 +39,7 @@ f.operating_hours,
 f.description 
 FROM facility_request as r
 INNER JOIN facility as f
-ON f.id = r.facility_id`
+ON f.id = r.facility_id `
 
 // GetFacilityList is a function to get facility list owned by the organization from database
 func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facility, typing.CustomError) {
@@ -308,9 +308,8 @@ func (dbs *DataService) GetFacilityRequest(requestID int64) (*common.FacilityReq
 func (dbs *DataService) getFacilityRequestWithFacilityInfoList(condition string, params ...interface{}) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
 	var facilities []*model.FacilityRequestWithInfo
 
-	query := queryForRequestFacilityWithFacilty + `WHERE organization_id = ?;`
+	query := queryForRequestFacilityWithFacilty + condition
 	query = dbs.SQL.Rebind(query)
-
 	if err := dbs.SQL.Select(&facilities, query, params...); err != nil {
 		return nil, &typing.DatabaseError{
 			Err:        err,
@@ -336,7 +335,7 @@ func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facilit
 
 // GetFacilityRequestsListStatus is a function to get facilityrequest list of the event from database
 func (dbs *DataService) GetFacilityRequestsListStatus(eventID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
-	return dbs.getFacilityRequestWithFacilityInfoList(`WHERE event_id = %d;`, eventID)
+	return dbs.getFacilityRequestWithFacilityInfoList(`WHERE event_id = ?;`, eventID)
 }
 
 // GetApprovedFacilityRequestList is a function to get approved facilityRequestList by facility ID
@@ -345,7 +344,7 @@ func (dbs *DataService) GetApprovedFacilityRequestList(facilityID int64, start *
 	query := `
 	SELECT * 
 	FROM facility_request
-	WHERE facility_id = ?;
+	WHERE facility_id = ?
 	AND status = 'APPROVED';`
 	query = dbs.SQL.Rebind(query)
 
