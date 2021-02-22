@@ -10,15 +10,22 @@ docker-compose -f docker-compose.dev.yaml up -d
 ```
 make apis
 ```
-3. Prepare Go's env
+3. Run migration for database
+```
+git clone https://github.com/hu-tao-supremacy/migrations/
+cd migrations
+yarn
+make migrate
+```
+4. Prepare Go's env
 ```
 source dev-env
 ```
-4. Code
+5. Code
 ```
 code .
 ```
-5. Run
+6. Run
 ```
 go run ./cmd/*.go
 ```
