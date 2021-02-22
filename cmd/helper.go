@@ -149,14 +149,13 @@ func isAbleToRejectFacilityRequest(fs *FacilityServer, in *facility.RejectFacili
 }
 
 func handlePermissionChannel(permissionEventChannel <-chan bool, permissionFacilityChannel <-chan bool) (bool, common.Permission, typing.CustomError) {
-	isPermissionEvent := true
+	var isPermissionEvent bool
 	for i := 0; i < 2; i++ {
 		select {
 		case isPermissionEvent := <-permissionEventChannel:
 			if isPermissionEvent {
 				return true, 0, nil
 			}
-			isPermissionEvent = false
 
 		case isPermissionFacility := <-permissionFacilityChannel:
 			if isPermissionFacility {
