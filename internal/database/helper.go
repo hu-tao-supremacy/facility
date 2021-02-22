@@ -15,11 +15,10 @@ import (
 	typing "onepass.app/facility/internal/typing"
 )
 
-func convertOperatingHoursModelToProto(OperatingHours types.JSONText) ([]*common.OperatingHour, typing.CustomError) {
+func convertOperatingHoursModelToProto(operatingHours types.JSONText) ([]*common.OperatingHour, typing.CustomError) {
 	var message []*model.OperatingHour
-	err := json.Unmarshal(OperatingHours, &message)
 
-	if err != nil {
+	if err := json.Unmarshal(operatingHours, &message); err != nil {
 		return nil, &typing.DatabaseError{StatusCode: codes.DataLoss, Err: err}
 	}
 
