@@ -200,7 +200,7 @@ func (fs *FacilityServer) GetFacilityRequestStatusFull(ctx context.Context, in *
 	return result, nil
 }
 
-// GetAvailableTimeOfFacility is a function to get available of facility
+// GetAvailableTimeOfFacility is a function to get available of facility will ignore hours and seconds in start/finish input
 func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *facility.GetAvailableTimeOfFacilityRequest) (*facility.GetAvailableTimeOfFacilityResponse, error) {
 	facilityRequests, err := fs.dbs.GetApprovedFacilityRequestList(in.FacilityId, in.Start, in.End)
 	if err != nil {
