@@ -239,11 +239,14 @@ func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *fa
 	for _, request := range facilityRequests {
 		if request.Finish.Seconds >= in.Start.Seconds && request.Start.Seconds <= in.End.Seconds {
 			requestStartTime, _ := ptypes.Timestamp(request.Start)
+			requestFinishTime, _ := ptypes.Timestamp(request.Finish)
 			index := requestStartTime.Day() - startTime.Day()
+			startHour := requestStartTime
+			requestStartHour := requestStartTime.Hour()
+			requestFinishHour := requestFinishTime.Hour()
 			for i, item := range result[index].Items {
-				requestFinishTime, _ := ptypes.Timestamp(request.Finish)
-				currentHour := requestStartTime.Hour() + i
-				if item && currentHour <= requestStartTime.Hour() || requestFinishTime.Hour() >= currentHour {
+				currentHour := startTime.Hour() + i
+				if item && currentHour <= requestStartHour || requestFinishHour >= currentHour {
 					result[index].Items[i] = false
 				}
 			}
