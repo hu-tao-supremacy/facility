@@ -96,9 +96,8 @@ func convertFacilityRequestWithInfoModelToProto(data *model.FacilityRequestWithI
 
 func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
 	dayStart := start.Day()
-	dayFinish := finish.Day()
 	now := time.Now()
-	if dayStart != dayFinish {
+	if dayStart != finish.Day() {
 		return &typing.InputError{Name: "Start and Finish must be the same day"}
 	}
 
@@ -116,7 +115,7 @@ func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.
 		return &typing.InputError{Name: "Minutes and seconds must be 0"}
 	}
 	if HourStart > HourFinish {
-		return &typing.InputError{Name: "Start must be ealier than Finish"}
+		return &typing.InputError{Name: "Start must be earlier than Finish"}
 	}
 
 	weekDayStart := start.Weekday()
