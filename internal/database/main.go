@@ -44,14 +44,13 @@ ON f.id = r.facility_id`
 // GetFacilityList is a function to get facility list owned by the organization from database
 func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facility, typing.CustomError) {
 	var facilities []*model.Facility
-	query := fmt.Sprintf(`
+	query := `
 	SELECT * 
 	FROM facility 
-	WHERE facility.organization_id = %d;`,
-		organizationID)
-	err := dbs.SQL.Select(&facilities, query)
+	WHERE facility.organization_id = ?;`
 
-	if err != nil {
+	query = dbs.SQL.Rebind(query)
+	if err := dbs.SQL.Select(&facilities, query, organizationID); err != nil {
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
@@ -75,9 +74,8 @@ func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, typing.C
 	query := `
 	SELECT * 
 	FROM facility`
-	err := dbs.SQL.Select(&facilities, query)
 
-	if err != nil {
+	if err := dbs.SQL.Select(&facilities, query); err != nil {
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
@@ -99,12 +97,12 @@ func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, typing.C
 // GetFacilityInfo is a function to get facility’s information by id
 func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, typing.CustomError) {
 	var _facility model.Facility
-	query := fmt.Sprintf(`
+	query := `
 	SELECT * 
 	FROM facility 
-	WHERE facility.id = %d`,
-		facilityID)
-	err := dbs.SQL.Get(&_facility, query)
+	WHERE facility.id = ?`
+	query = dbs.SQL.Rebind(query)
+	err := dbs.SQL.Get(&_facility, query, facilityID)
 
 	switch {
 	case err == sql.ErrNoRows:
@@ -188,14 +186,18 @@ func (dbs *DataService) CreateFacilityRequest(eventID int64, facilityID int64, s
 		"start":       startTime,
 		"finish":      finishTime,
 	})
-	if rows.Next() {
-		rows.Scan(&id)
-	}
-
 	if err != nil {
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
+		}
+	}
+	if rows.Next() {
+		if err := rows.Scan(&id); err != nil {
+			return nil, &typing.DatabaseError{
+				Err:        err,
+				StatusCode: codes.Internal,
+			}
 		}
 	}
 
@@ -221,7 +223,7 @@ func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Times
 	startTime, _ := ptypes.Timestamp(start)
 	finishTime, _ := ptypes.Timestamp(finish)
 	if checkTimeIntegrity {
-		inputError := checkDayIntegrity(startTime, finishTime, facility.OperatingHours)
+		inputError := checkDateInput(startTime, finishTime, facility.OperatingHours)
 		if inputError != nil {
 			return false, inputError
 		}
@@ -231,34 +233,34 @@ func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Times
 	startTimeText := startTime.Format(layoutTime)
 	finishTimeText := finishTime.Format(layoutTime)
 
-	query := fmt.Sprintf(`
+	query := `
 	SELECT COUNT(*) 
 	FROM facility_request 
-	WHERE (('%s' >= start AND '%s' < finish) OR ('%s' > start AND '%s' <= finish)) 
-	AND facility_id = %d 
+	WHERE ((? >= start AND ? < finish) OR (? > start AND ? <= finish)) 
+	AND facility_id = ? 
 	AND status='APPROVED' 
-	LIMIT 1;`,
-		startTimeText, startTimeText, finishTimeText, finishTimeText, facilityID)
-	err := dbs.SQL.Get(&count, query)
-
-	if err != nil {
+	LIMIT 1;`
+	query = dbs.SQL.Rebind(query)
+	if err := dbs.SQL.Get(&count, query, startTimeText, startTimeText, finishTimeText, finishTimeText, facilityID); err != nil {
 		return false, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
 		}
 	}
 
+	log.Println(count, "c")
 	return count != 0, nil
 }
 
 // GetFacilityRequestStatusFull is function to get facilityR request full by id
-func (dbs *DataService) GetFacilityRequestStatusFull(RequestID int64) (*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
+func (dbs *DataService) GetFacilityRequestStatusFull(requestID int64) (*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
 	var facilityRequest model.FacilityRequestWithInfo
 
-	query := fmt.Sprintf(queryForRequestFacilityWithFacilty+`
-	WHERE r.id=%d 
-	LIMIT 1;`, RequestID)
-	err := dbs.SQL.Get(&facilityRequest, query)
+	query := queryForRequestFacilityWithFacilty + `
+	WHERE r.id=?
+	LIMIT 1;`
+	query = dbs.SQL.Rebind(query)
+	err := dbs.SQL.Get(&facilityRequest, query, requestID)
 
 	switch {
 	case err == sql.ErrNoRows:
@@ -277,16 +279,16 @@ func (dbs *DataService) GetFacilityRequestStatusFull(RequestID int64) (*facility
 }
 
 // GetFacilityRequest is function to get facility request by id
-func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityRequest, typing.CustomError) {
+func (dbs *DataService) GetFacilityRequest(requestID int64) (*common.FacilityRequest, typing.CustomError) {
 	var facilityRequest model.FacilityRequest
 
-	query := fmt.Sprintf(`
+	query := `
 	SELECT * 
 	FROM facility_request 
-	WHERE id=%d 
-	LIMIT 1
-	`, RequestID)
-	err := dbs.SQL.Get(&facilityRequest, query)
+	WHERE id=?
+	LIMIT 1;`
+	query = dbs.SQL.Rebind(query)
+	err := dbs.SQL.Get(&facilityRequest, query, requestID)
 
 	switch {
 	case err == sql.ErrNoRows:
@@ -308,12 +310,9 @@ func (dbs *DataService) GetFacilityRequest(RequestID int64) (*common.FacilityReq
 func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
 	var facilities []*model.FacilityRequestWithInfo
 
-	query := fmt.Sprintf(queryForRequestFacilityWithFacilty+`
-	WHERE organization_id = %d;`,
-		organizationID)
-	err := dbs.SQL.Select(&facilities, query)
+	query := queryForRequestFacilityWithFacilty + `WHERE organization_id = ?;`
 
-	if err != nil {
+	if err := dbs.SQL.Select(&facilities, query, organizationID); err != nil {
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
@@ -335,10 +334,8 @@ func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facilit
 func (dbs *DataService) GetFacilityRequestsListStatus(eventID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
 	var facilities []*model.FacilityRequestWithInfo
 
-	query := fmt.Sprintf(queryForRequestFacilityWithFacilty+`
-	 WHERE event_id = %d;`,
-		eventID)
-	err := dbs.SQL.Select(&facilities, query)
+	query := queryForRequestFacilityWithFacilty + `WHERE event_id = %d;`
+	err := dbs.SQL.Select(&facilities, query, eventID)
 
 	if err != nil {
 		return nil, &typing.DatabaseError{
@@ -360,9 +357,8 @@ func (dbs *DataService) GetFacilityRequestsListStatus(eventID int64) ([]*facilit
 
 func (dbs *DataService) ping() (string, error) {
 	var version string
-	err := dbs.SQL.Get(&version, "SELECT VERSION();")
 
-	if err != nil {
+	if err := dbs.SQL.Get(&version, "SELECT VERSION();"); err != nil {
 		return version, status.Error(codes.Internal, err.Error())
 	}
 

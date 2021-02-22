@@ -15,11 +15,10 @@ import (
 	typing "onepass.app/facility/internal/typing"
 )
 
-func convertOperatingHoursModelToProto(OperatingHours types.JSONText) ([]*common.OperatingHour, typing.CustomError) {
+func convertOperatingHoursModelToProto(operatingHours types.JSONText) ([]*common.OperatingHour, typing.CustomError) {
 	var message []*model.OperatingHour
-	err := json.Unmarshal(OperatingHours, &message)
 
-	if err != nil {
+	if err := json.Unmarshal(operatingHours, &message); err != nil {
 		return nil, &typing.DatabaseError{StatusCode: codes.DataLoss, Err: err}
 	}
 
@@ -95,11 +94,10 @@ func convertFacilityRequestWithInfoModelToProto(data *model.FacilityRequestWithI
 	}, nil
 }
 
-func checkDayIntegrity(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
+func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
 	dayStart := start.Day()
-	dayFinish := finish.Day()
 	now := time.Now()
-	if dayStart != dayFinish {
+	if dayStart != finish.Day() {
 		return &typing.InputError{Name: "Start and Finish must be the same day"}
 	}
 
@@ -117,7 +115,7 @@ func checkDayIntegrity(start time.Time, finish time.Time, operatingHours []*comm
 		return &typing.InputError{Name: "Minutes and seconds must be 0"}
 	}
 	if HourStart > HourFinish {
-		return &typing.InputError{Name: "Start must be ealier than Finish"}
+		return &typing.InputError{Name: "Start must be earlier than Finish"}
 	}
 
 	weekDayStart := start.Weekday()

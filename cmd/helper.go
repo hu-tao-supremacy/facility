@@ -8,19 +8,19 @@ import (
 )
 
 // hasPermission is mock function for account.hasPermission
-func hasPermission(UserID int64, OrganizationID int64, PermissionName common.Permission) bool {
+func hasPermission(userID int64, organizationID int64, permissionName common.Permission) bool {
 	// time.Sleep(1 * time.Second)
 	return true
 }
 
 // hasEvent is mock function for organization.hasEvent
-func hasEvent(UserID int64, PermissionName int64, EventID int64) bool {
+func hasEvent(userID int64, permissionName int64, eventID int64) bool {
 	// time.Sleep(1 * time.Second)
 	return true
 }
 
 // getEvent is mock function for Participant.getEvent
-func getEvent(EventID int64) common.Event {
+func getEvent(eventID int64) common.Event {
 	// time.Sleep(1 * time.Second)
 	return common.Event{}
 }
@@ -156,14 +156,11 @@ func handlePermissionChannel(permissionEventChannel <-chan bool, permissionFacil
 			if isPermissionEvent {
 				return true, 0, nil
 			}
-			isPermissionEvent = false
 
 		case isPermissionFacility := <-permissionFacilityChannel:
 			if isPermissionFacility {
 				return true, 0, nil
 			}
-			isPermissionFacility = false
-
 		}
 	}
 
