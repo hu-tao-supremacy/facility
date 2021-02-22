@@ -1,9 +1,13 @@
 package main
 
 import (
+	"time"
+
+	"github.com/golang/protobuf/ptypes"
 	_ "github.com/lib/pq"
 	common "onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
+	"onepass.app/facility/internal/helper"
 	typing "onepass.app/facility/internal/typing"
 )
 
@@ -205,4 +209,70 @@ func isAbleToViewFacilityRequestFull(fs *FacilityServer, userID int64, facilityR
 	}()
 
 	return handlePermissionChannel(permissionEventChannel, permissionFacilityChannel)
+}
+
+// isAbleToGetAvailableTimeOfFacility a function to check whether user can check facility availability
+func isAbleToGetAvailableTimeOfFacility(startTime time.Time, finishTime time.Time) typing.CustomError {
+	day := helper.DayDifference(startTime, finishTime) + 1
+	if day <= 0 {
+		return &typing.InputError{Name: "Start must be earlier than Finish"}
+	}
+
+	now := time.Now()
+	if helper.DayDifference(now, finishTime) >= 30 {
+		return &typing.InputError{Name: "Booking date can only be within 30 days period from today"}
+	}
+
+	HourStart, _, _ := startTime.Clock()
+
+	dayDifference := helper.DayDifference(now, startTime)
+	if dayDifference < 0 || (dayDifference == 0 && HourStart < now.Hour()) {
+		return &typing.InputError{Name: "Booking time must not be in the past"}
+	}
+
+	return nil
+}
+
+func generateFacilityAvailabilityResult(startTime time.Time, finishTime time.Time, operatingHours map[int32]*common.OperatingHour, facilityRequests []*common.FacilityRequest) (*facility.GetAvailableTimeOfFacilityResponse, error) {
+	day := helper.DayDifference(startTime, finishTime) + 1
+	result := make([]*facility.GetAvailableTimeOfFacilityResponse_Day, day)
+	var currentDay time.Time
+	for i := range result {
+		currentDay = startTime.AddDate(0, 0, i)
+		operationHour := operatingHours[int32(currentDay.Weekday())]
+		if operationHour == nil {
+			result[i] = &facility.GetAvailableTimeOfFacilityResponse_Day{Items: nil}
+			continue
+		}
+		startHour := operationHour.StartHour
+		finishHour := operationHour.FinishHour
+		hour := finishHour - startHour
+		avaialbleTime := make([]bool, hour)
+		for j := range avaialbleTime {
+			avaialbleTime[j] = true
+		}
+		result[i] = &facility.GetAvailableTimeOfFacilityResponse_Day{Items: avaialbleTime}
+	}
+
+	for _, request := range facilityRequests {
+		requestStartTime, _ := ptypes.Timestamp(request.Start)
+		requestFinishTime, _ := ptypes.Timestamp(request.Finish)
+		index := requestStartTime.Day() - startTime.Day()
+		operatiingHour := operatingHours[int32(requestStartTime.Weekday())]
+		if operatiingHour == nil {
+			continue
+		}
+		startHour := operatiingHour.StartHour
+		requestStartHour := requestStartTime.Hour()
+		requestFinishHour := requestFinishTime.Hour()
+		for i, item := range result[index].Items {
+			currentHour := int(startHour) + i
+			if item && currentHour <= requestStartHour || currentHour >= requestFinishHour {
+				result[index].Items[i] = false
+			}
+		}
+
+	}
+
+	return &facility.GetAvailableTimeOfFacilityResponse{Day: result}, nil
 }

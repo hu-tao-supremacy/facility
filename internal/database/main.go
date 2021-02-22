@@ -15,6 +15,7 @@ import (
 
 	common "onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
+	"onepass.app/facility/internal/helper"
 	model "onepass.app/facility/internal/model"
 	typing "onepass.app/facility/internal/typing"
 
@@ -345,10 +346,15 @@ func (dbs *DataService) GetApprovedFacilityRequestList(facilityID int64, start *
 	SELECT * 
 	FROM facility_request
 	WHERE facility_id = ?
+	AND start BETWEEN ? AND ?
 	AND status = 'APPROVED';`
 	query = dbs.SQL.Rebind(query)
 
-	if err := dbs.SQL.Select(&facilitieRequests, query, facilityID); err != nil {
+	layoutTime := "2006-01-02"
+	startTimeText := helper.TimeStampToText(start, layoutTime)
+	finishTimeText := helper.TimeStampToText(finish, layoutTime)
+
+	if err := dbs.SQL.Select(&facilitieRequests, query, facilityID, startTimeText, finishTimeText); err != nil {
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
