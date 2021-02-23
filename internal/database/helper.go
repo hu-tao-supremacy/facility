@@ -101,15 +101,15 @@ func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.
 	}
 
 	now := time.Now()
-	dayDifference := helper.DayDifference(now, start)
-	if dayDifference >= 30 {
+	dayDifferenceFromNow := helper.DayDifference(now, start)
+	if dayDifferenceFromNow >= 30 {
 		return &typing.InputError{Name: "Booking date can only be within 30 days period from today"}
 	}
 
 	HourStart, MinuteStart, secondStart := start.Clock()
 	HourFinish, MinuteFinish, secondFinish := finish.Clock()
 
-	if dayDifference < 0 || (dayDifference == 0 && HourStart < now.Hour()) {
+	if dayDifferenceFromNow < 0 || (dayDifferenceFromNow == 0 && HourStart < now.Hour()) {
 		return &typing.InputError{Name: "Booking time must not be in the past"}
 	}
 	if MinuteStart != 0 || secondStart != 0 || MinuteFinish != 0 || secondFinish != 0 {
