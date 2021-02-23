@@ -154,7 +154,10 @@ func (fs *FacilityServer) GetFacilityRequestList(ctx context.Context, in *facili
 // GetFacilityRequestsListStatus is a function to get facility’s of the event
 func (fs *FacilityServer) GetFacilityRequestsListStatus(ctx context.Context, in *facility.GetFacilityRequestsListStatusRequest) (*facility.GetFacilityRequestsListStatusResponse, error) {
 	permission := common.Permission_UPDATE_FACILITY
-	event := getEvent(in.EventId)
+	event, err := getEvent(fs.participant, in.EventId)
+	if err != nil {
+		return nil, err
+	}
 	isPermission, err := hasPermission(fs.account, in.UserId, event.OrganizationId, permission)
 
 	if err != nil {
