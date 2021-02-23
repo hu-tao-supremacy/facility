@@ -123,8 +123,8 @@ func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.
 	weekDayStart := start.Weekday()
 	var operatingHour *common.OperatingHour
 	for _, value := range operatingHours {
-		day := common.DayOfWeek_value[value.Day.String()]
-		if day == int32(weekDayStart) {
+		day := int(value.Day.Number())
+		if day == int(weekDayStart) {
 			operatingHour = value
 		}
 	}

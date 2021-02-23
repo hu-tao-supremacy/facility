@@ -202,21 +202,21 @@ func (fs *FacilityServer) GetFacilityRequestStatusFull(ctx context.Context, in *
 
 // GetAvailableTimeOfFacility is a function to get available of facility will ignore hours and seconds in start/finish input
 func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *facility.GetAvailableTimeOfFacilityRequest) (*facility.GetAvailableTimeOfFacilityResponse, error) {
-	facility, err := getFacilityInfoWithRequests(fs, in.FacilityId, in.Start, in.End)
+	startTime, _ := ptypes.Timestamp(in.Start)
+	finishTime, _ := ptypes.Timestamp(in.End)
+	err := isAbleToGetAvailableTimeOfFacility(startTime, finishTime)
 	if err != nil {
 		return nil, status.Error(err.Code(), err.Error())
 	}
 
-	startTime, _ := ptypes.Timestamp(in.Start)
-	finishTime, _ := ptypes.Timestamp(in.End)
-	err = isAbleToGetAvailableTimeOfFacility(startTime, finishTime)
+	facility, err := getFacilityInfoWithRequests(fs, in.FacilityId, in.Start, in.End)
 	if err != nil {
 		return nil, status.Error(err.Code(), err.Error())
 	}
 
 	operatingHours := map[int32]*common.OperatingHour{}
 	for _, operatingHour := range facility.Info.OperatingHours {
-		operatingHours[common.DayOfWeek_value[operatingHour.Day.String()]] = operatingHour
+		operatingHours[int32(operatingHour.Day.Number())] = operatingHour
 	}
 
 	emptyResultArray := createResultEmptyArray(startTime, finishTime, operatingHours)
