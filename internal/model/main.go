@@ -9,8 +9,8 @@ import (
 
 // OperatingHour is struct for facility operationHours
 type OperatingHour struct {
-	StartHour  int64  `json:"startHour"`
-	FinishHour int64  `json:"finishHour"`
+	StartHour  int64  `json:"start_hour"`
+	FinishHour int64  `json:"finish_hour"`
 	Day        string `json:"day"`
 }
 
