@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	empty "github.com/golang/protobuf/ptypes/empty"
@@ -13,8 +14,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	account "onepass.app/facility/hts/account"
 	"onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
+	organizer "onepass.app/facility/hts/organizer"
+	participant "onepass.app/facility/hts/participant"
 	database "onepass.app/facility/internal/database"
 	typing "onepass.app/facility/internal/typing"
 
@@ -24,7 +28,10 @@ import (
 // FacilityServer is for handling facility endpoint
 type FacilityServer struct {
 	facility.UnimplementedFacilityServiceServer
-	dbs *database.DataService
+	account     account.AccountServiceClient
+	participant participant.ParticipantServiceClient
+	organizer   organizer.OrganizationServiceClient
+	dbs         *database.DataService
 }
 
 // GetFacilityList is a function to list all facilities owned by organization
@@ -124,7 +131,10 @@ func (fs *FacilityServer) CreateFacilityRequest(ctx context.Context, in *facilit
 // GetFacilityRequestList is a function to get facility request’s of the organization
 func (fs *FacilityServer) GetFacilityRequestList(ctx context.Context, in *facility.GetFacilityRequestListRequest) (*facility.GetFacilityRequestListResponse, error) {
 	permission := common.Permission_UPDATE_FACILITY
-	isPermission := hasPermission(in.UserId, in.OrganizationId, permission)
+	isPermission, err := hasPermission(fs.account, in.UserId, in.OrganizationId, permission)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
 
 	if !isPermission {
 		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
@@ -145,8 +155,11 @@ func (fs *FacilityServer) GetFacilityRequestList(ctx context.Context, in *facili
 func (fs *FacilityServer) GetFacilityRequestsListStatus(ctx context.Context, in *facility.GetFacilityRequestsListStatusRequest) (*facility.GetFacilityRequestsListStatusResponse, error) {
 	permission := common.Permission_UPDATE_FACILITY
 	event := getEvent(in.EventId)
-	isPermission := hasPermission(in.UserId, event.OrganizationId, permission)
+	isPermission, err := hasPermission(fs.account, in.UserId, event.OrganizationId, permission)
 
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
 	if !isPermission {
 		return nil, status.Error(codes.PermissionDenied, (&typing.PermissionError{Type: permission}).Error())
 	}
@@ -223,6 +236,33 @@ func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *fa
 	return generateFacilityAvailabilityResult(emptyResultArray, startTime, operatingHours, facility.Requests), nil
 }
 
+func (fs *FacilityServer) connectToGRPCClients() {
+	// Disable transport security is intentional
+	deadline := 20
+	opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithTimeout(time.Duration(deadline) * time.Second)}
+
+	connAccount, err := grpc.Dial("127.0.0.1:50055", opts...)
+	if err != nil {
+		panic(err)
+	}
+	accountClient := account.NewAccountServiceClient(connAccount)
+	fs.account = accountClient
+
+	connParticipant, err := grpc.Dial("127.0.0.1:50055", opts...)
+	if err != nil {
+		panic(err)
+	}
+	participantClient := participant.NewParticipantServiceClient(connParticipant)
+	fs.participant = participantClient
+
+	connOrganizer, err := grpc.Dial("127.0.0.1:50055", opts...)
+	if err != nil {
+		panic(err)
+	}
+	organizerClient := organizer.NewOrganizationServiceClient(connOrganizer)
+	fs.organizer = organizerClient
+}
+
 func main() {
 	port := os.Getenv("GRPC_PORT")
 	lis, err := net.Listen("tcp", ":"+port)
@@ -232,10 +272,12 @@ func main() {
 	s := grpc.NewServer()
 
 	facilityServer := &FacilityServer{}
+
 	db := &database.DataService{}
 	db.ConnectToDB()
 	facilityServer.dbs = db
 
+	facilityServer.connectToGRPCClients()
 	facility.RegisterFacilityServiceServer(s, facilityServer)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
