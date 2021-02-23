@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/golang/protobuf/ptypes"
 	empty "github.com/golang/protobuf/ptypes/empty"
 
 	"google.golang.org/grpc"
@@ -197,6 +198,29 @@ func (fs *FacilityServer) GetFacilityRequestStatusFull(ctx context.Context, in *
 	}
 
 	return result, nil
+}
+
+// GetAvailableTimeOfFacility is a function to get available of facility will ignore hours and seconds in start/finish input
+func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *facility.GetAvailableTimeOfFacilityRequest) (*facility.GetAvailableTimeOfFacilityResponse, error) {
+	startTime, _ := ptypes.Timestamp(in.Start)
+	finishTime, _ := ptypes.Timestamp(in.End)
+	err := isAbleToGetAvailableTimeOfFacility(startTime, finishTime)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	facility, err := getFacilityInfoWithRequests(fs, in.FacilityId, in.Start, in.End)
+	if err != nil {
+		return nil, status.Error(err.Code(), err.Error())
+	}
+
+	operatingHours := map[int32]*common.OperatingHour{}
+	for _, operatingHour := range facility.Info.OperatingHours {
+		operatingHours[int32(operatingHour.Day.Number())] = operatingHour
+	}
+
+	emptyResultArray := createResultEmptyArray(startTime, finishTime, operatingHours)
+	return generateFacilityAvailabilityResult(emptyResultArray, startTime, operatingHours, facility.Requests), nil
 }
 
 func main() {

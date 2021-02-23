@@ -1,9 +1,14 @@
 package main
 
 import (
+	"time"
+
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	_ "github.com/lib/pq"
 	common "onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
+	"onepass.app/facility/internal/helper"
 	typing "onepass.app/facility/internal/typing"
 )
 
@@ -205,4 +210,107 @@ func isAbleToViewFacilityRequestFull(fs *FacilityServer, userID int64, facilityR
 	}()
 
 	return handlePermissionChannel(permissionEventChannel, permissionFacilityChannel)
+}
+
+// isAbleToGetAvailableTimeOfFacility a function to check whether user can check facility availability
+func isAbleToGetAvailableTimeOfFacility(startTime time.Time, finishTime time.Time) typing.CustomError {
+	if helper.DayDifference(startTime, finishTime)+1 <= 0 {
+		return &typing.InputError{Name: "Start must be earlier than Finish"}
+	}
+
+	now := time.Now()
+	if helper.DayDifference(now, finishTime) >= 30 {
+		return &typing.InputError{Name: "Booking date can only be within 30 days period from today"}
+	}
+
+	dayDifference := helper.DayDifference(now, startTime)
+	if dayDifference < 0 {
+		return &typing.InputError{Name: "Booking time must not be in the past"}
+	}
+
+	return nil
+}
+
+// createResultEmptyArray is function to create 2D empy boolean array according to input
+func createResultEmptyArray(startTime time.Time, finishTime time.Time, operatingHours map[int32]*common.OperatingHour) []*facility.GetAvailableTimeOfFacilityResponse_Day {
+	dayDifference := helper.DayDifference(startTime, finishTime) + 1
+	result := make([]*facility.GetAvailableTimeOfFacilityResponse_Day, dayDifference)
+	var currentDay time.Time
+	for i := range result {
+		currentDay = startTime.AddDate(0, 0, i)
+		operationHour := operatingHours[int32(currentDay.Weekday())]
+		if operationHour == nil {
+			result[i] = &facility.GetAvailableTimeOfFacilityResponse_Day{Items: nil}
+			continue
+		}
+		startHour := operationHour.StartHour
+		finishHour := operationHour.FinishHour
+		hour := finishHour - startHour
+		avaialbleTime := make([]bool, hour)
+		for j := range avaialbleTime {
+			avaialbleTime[j] = true
+		}
+		result[i] = &facility.GetAvailableTimeOfFacilityResponse_Day{Items: avaialbleTime}
+	}
+
+	return result
+}
+
+// generateFacilityAvailabilityResult is a function to genereate facility request from empty 2D boolean array
+func generateFacilityAvailabilityResult(resultArray []*facility.GetAvailableTimeOfFacilityResponse_Day, startTime time.Time, operatingHours map[int32]*common.OperatingHour, facilityRequests []*common.FacilityRequest) *facility.GetAvailableTimeOfFacilityResponse {
+	for _, request := range facilityRequests {
+		requestStartTime, _ := ptypes.Timestamp(request.Start)
+		requestFinishTime, _ := ptypes.Timestamp(request.Finish)
+		index := requestStartTime.Day() - startTime.Day()
+		operatiingHour := operatingHours[int32(requestStartTime.Weekday())]
+		if operatiingHour == nil {
+			continue
+		}
+		startHour := operatiingHour.StartHour
+		requestStartHour := requestStartTime.Hour()
+		requestFinishHour := requestFinishTime.Hour()
+		for i, item := range resultArray[index].Items {
+			currentHour := int(startHour) + i
+			if item && currentHour <= requestStartHour || currentHour >= requestFinishHour {
+				resultArray[index].Items[i] = false
+			}
+		}
+
+	}
+
+	return &facility.GetAvailableTimeOfFacilityResponse{Day: resultArray}
+}
+
+// getFacilityInfoWithRequests is function to preapare facility info for GetAvailableTimeOfFacility API
+func getFacilityInfoWithRequests(fs *FacilityServer, facilityID int64, start *timestamp.Timestamp, end *timestamp.Timestamp) (*FacilityInfoWithRequest, typing.CustomError) {
+	errorChannel := make(chan typing.CustomError, 2)
+	faicilityInfoChannel := make(chan *common.Facility)
+	faiclityRequestsChannel := make(chan []*common.FacilityRequest)
+
+	go func() {
+		facilityInfo, err := fs.dbs.GetFacilityInfo(facilityID)
+		if err != nil {
+			errorChannel <- err
+		}
+		faicilityInfoChannel <- facilityInfo
+	}()
+	go func() {
+		facilityRequests, err := fs.dbs.GetApprovedFacilityRequestList(facilityID, start, end)
+		if err != nil {
+			errorChannel <- err
+		}
+		faiclityRequestsChannel <- facilityRequests
+	}()
+
+	facilityInfo := <-faicilityInfoChannel
+	facilityRequests := <-faiclityRequestsChannel
+
+	close(errorChannel)
+	for err := range errorChannel {
+		return nil, err
+	}
+	close(faicilityInfoChannel)
+	close(faiclityRequestsChannel)
+
+	return &FacilityInfoWithRequest{Info: facilityInfo, Requests: facilityRequests}, nil
 }

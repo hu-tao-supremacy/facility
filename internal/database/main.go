@@ -15,6 +15,7 @@ import (
 
 	common "onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
+	"onepass.app/facility/internal/helper"
 	model "onepass.app/facility/internal/model"
 	typing "onepass.app/facility/internal/typing"
 
@@ -39,7 +40,7 @@ f.operating_hours,
 f.description 
 FROM facility_request as r
 INNER JOIN facility as f
-ON f.id = r.facility_id`
+ON f.id = r.facility_id `
 
 // GetFacilityList is a function to get facility list owned by the organization from database
 func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facility, typing.CustomError) {
@@ -248,7 +249,6 @@ func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Times
 		}
 	}
 
-	log.Println(count, "c")
 	return count != 0, nil
 }
 
@@ -306,13 +306,12 @@ func (dbs *DataService) GetFacilityRequest(requestID int64) (*common.FacilityReq
 	}
 }
 
-// GetFacilityRequestList is a function to get facilityrequest list owned by the organization from database
-func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
+func (dbs *DataService) getFacilityRequestWithFacilityInfoList(condition string, params ...interface{}) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
 	var facilities []*model.FacilityRequestWithInfo
 
-	query := queryForRequestFacilityWithFacilty + `WHERE organization_id = ?;`
-
-	if err := dbs.SQL.Select(&facilities, query, organizationID); err != nil {
+	query := queryForRequestFacilityWithFacilty + condition
+	query = dbs.SQL.Rebind(query)
+	if err := dbs.SQL.Select(&facilities, query, params...); err != nil {
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
@@ -330,25 +329,40 @@ func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facilit
 	return result, nil
 }
 
+// GetFacilityRequestList is a function to get facilityrequest list owned by the organization from database
+func (dbs *DataService) GetFacilityRequestList(organizationID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
+	return dbs.getFacilityRequestWithFacilityInfoList(`WHERE organization_id = ?;`, organizationID)
+}
+
 // GetFacilityRequestsListStatus is a function to get facilityrequest list of the event from database
 func (dbs *DataService) GetFacilityRequestsListStatus(eventID int64) ([]*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
-	var facilities []*model.FacilityRequestWithInfo
+	return dbs.getFacilityRequestWithFacilityInfoList(`WHERE event_id = ?;`, eventID)
+}
 
-	query := queryForRequestFacilityWithFacilty + `WHERE event_id = %d;`
-	err := dbs.SQL.Select(&facilities, query, eventID)
+// GetApprovedFacilityRequestList is a function to get approved facilityRequestList by facility ID
+func (dbs *DataService) GetApprovedFacilityRequestList(facilityID int64, start *timestamppb.Timestamp, finish *timestamppb.Timestamp) ([]*common.FacilityRequest, typing.CustomError) {
+	var facilitieRequests []*model.FacilityRequest
+	query := `
+	SELECT * 
+	FROM facility_request
+	WHERE facility_id = ?
+	AND start BETWEEN ? AND ?
+	AND status = 'APPROVED';`
+	query = dbs.SQL.Rebind(query)
 
-	if err != nil {
+	layoutTime := "2006-01-02"
+	startTimeText := helper.TimeStampToText(start, layoutTime)
+	finishTimeText := helper.TimeStampToText(finish, layoutTime)
+
+	if err := dbs.SQL.Select(&facilitieRequests, query, facilityID, startTimeText, finishTimeText); err != nil {
 		return nil, &typing.DatabaseError{
 			Err:        err,
 			StatusCode: codes.Internal,
 		}
 	}
-	result := make([]*facility.FacilityRequestWithFacilityInfo, len(facilities))
-	for i, item := range facilities {
-		value, err := convertFacilityRequestWithInfoModelToProto(item)
-		if err != nil {
-			return nil, err
-		}
+	result := make([]*common.FacilityRequest, len(facilitieRequests))
+	for i, item := range facilitieRequests {
+		value := convertFacilityRequestModelToProto(item)
 		result[i] = value
 	}
 

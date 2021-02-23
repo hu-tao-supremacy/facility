@@ -11,6 +11,7 @@ import (
 
 	common "onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
+	"onepass.app/facility/internal/helper"
 	model "onepass.app/facility/internal/model"
 	typing "onepass.app/facility/internal/typing"
 )
@@ -95,25 +96,26 @@ func convertFacilityRequestWithInfoModelToProto(data *model.FacilityRequestWithI
 }
 
 func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
-	dayStart := start.Day()
-	now := time.Now()
-	if dayStart != finish.Day() {
+	if helper.DayDifference(start, finish) != 0 {
 		return &typing.InputError{Name: "Start and Finish must be the same day"}
 	}
 
-	if dayStart > now.Day()+30 {
+	now := time.Now()
+	dayDifferenceFromNow := helper.DayDifference(now, start)
+	if dayDifferenceFromNow >= 30 {
 		return &typing.InputError{Name: "Booking date can only be within 30 days period from today"}
 	}
 
 	HourStart, MinuteStart, secondStart := start.Clock()
 	HourFinish, MinuteFinish, secondFinish := finish.Clock()
 
-	if dayStart < now.Day() || HourStart < now.Hour() {
+	if dayDifferenceFromNow < 0 || (dayDifferenceFromNow == 0 && HourStart < now.Hour()) {
 		return &typing.InputError{Name: "Booking time must not be in the past"}
 	}
 	if MinuteStart != 0 || secondStart != 0 || MinuteFinish != 0 || secondFinish != 0 {
 		return &typing.InputError{Name: "Minutes and seconds must be 0"}
 	}
+
 	if HourStart > HourFinish {
 		return &typing.InputError{Name: "Start must be earlier than Finish"}
 	}
@@ -121,8 +123,8 @@ func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.
 	weekDayStart := start.Weekday()
 	var operatingHour *common.OperatingHour
 	for _, value := range operatingHours {
-		day := common.DayOfWeek_value[value.Day.String()]
-		if day == int32(weekDayStart) {
+		day := int(value.Day.Number())
+		if day == int(weekDayStart) {
 			operatingHour = value
 		}
 	}
@@ -130,8 +132,8 @@ func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.
 		return &typing.InputError{Name: "Not in operatingHours"}
 	}
 
-	isStartAfterOpening := int(operatingHour.StartHour) < HourStart
-	isFinishBeforeClose := HourFinish < int(operatingHour.FinishHour)
+	isStartAfterOpening := int(operatingHour.StartHour) <= HourStart
+	isFinishBeforeClose := HourFinish <= int(operatingHour.FinishHour)
 	if !isStartAfterOpening || !isFinishBeforeClose {
 		return &typing.InputError{Name: "Not in operatingHours"}
 	}
