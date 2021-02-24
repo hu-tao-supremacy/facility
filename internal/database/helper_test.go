@@ -26,21 +26,20 @@ func TestConvertOperatingHoursModelToProto(t *testing.T) { // -
 
 	data = []byte(`[{"day":error "MON", "start_hour": 10, "finish_hour": 19}]`)
 	operatingHour2 := (*types.JSONText)(&data)
-	operatingHoursProto, err = ConvertOperatingHoursModelToProto(*operatingHour2)
+	_, err = ConvertOperatingHoursModelToProto(*operatingHour2)
 	assert.NotNil(err)
 
 	data = []byte(`[{"day": "MON", "start_hour": 10, "finish_hour": 19}, {"day": "SAT", "start_hour": 2, "finish_hour": 9}]`)
 	operatingHour3 := (*types.JSONText)(&data)
-	expected = []*common.OperatingHour{{Day: common.DayOfWeek_MON, StartHour: 10, FinishHour: 19}, {Day: common.DayOfWeek_SAT, StartHour: 2, FinishHour: 9}}
+	expected3 := []*common.OperatingHour{{Day: common.DayOfWeek_MON, StartHour: 10, FinishHour: 19}, {Day: common.DayOfWeek_SAT, StartHour: 2, FinishHour: 9}}
 	operatingHoursProto, err = ConvertOperatingHoursModelToProto(*operatingHour3)
 	assert.Nil(err)
 	assert.Equal(2, len(operatingHoursProto))
-	assert.Equal(expected[0], operatingHoursProto[0])
-	assert.Equal(expected[1], operatingHoursProto[1])
+	assert.Equal(expected3[0], operatingHoursProto[0])
+	assert.Equal(expected3[1], operatingHoursProto[1])
 
 	data = []byte(`[]`)
 	operatingHour4 := (*types.JSONText)(&data)
-	expected = []*common.OperatingHour{{Day: common.DayOfWeek_MON, StartHour: 10, FinishHour: 19}, {Day: common.DayOfWeek_SAT, StartHour: 2, FinishHour: 9}}
 	operatingHoursProto, err = ConvertOperatingHoursModelToProto(*operatingHour4)
 	assert.Nil(err)
 	assert.Equal(0, len(operatingHoursProto))
