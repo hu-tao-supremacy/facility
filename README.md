@@ -2,6 +2,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/hu-tao-supremacy/facility)](https://goreportcard.com/report/github.com/hu-tao-supremacy/facility)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Test](https://github.com/hu-tao-supremacy/facility/actions/workflows/test.yml/badge.svg)
+![Code Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/new5558/4c5f04edd09de877e2792257f7c98bba/raw/badge.json)
 
 1. Setting up PostgreSQL for dev environment
 ```
