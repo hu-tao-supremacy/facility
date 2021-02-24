@@ -31,9 +31,9 @@ func hasPermission(accountClient account.AccountServiceClient, userID int64, org
 }
 
 // hasEvent is mock function for organization.hasEvent
-func hasEvent(oragnizationClient organizer.OrganizationServiceClient, OrganizationID int64, userID int64, eventID int64) (bool, typing.CustomError) {
+func hasEvent(oragnizationClient organizer.OrganizationServiceClient, organizationID int64, userID int64, eventID int64) (bool, typing.CustomError) {
 	in := organizer.HasEventReq{
-		OrganizationId: OrganizationID,
+		OrganizationId: organizationID,
 		UserId:         userID,
 		EventId:        eventID,
 	}

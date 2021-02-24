@@ -240,27 +240,37 @@ func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *fa
 }
 
 func (fs *FacilityServer) connectToGRPCClients() {
-	// Disable transport security is intentional
-	deadline := 20
-	opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithTimeout(time.Duration(deadline) * time.Second)}
+	accountPath := os.Getenv("HTS_SVC_ACCOUNT")
+	participantPath := os.Getenv("HTS_SVC_PARTICIPANT")
+	organizerPart := os.Getenv("HTS_SVC_ORGANIZER")
 
-	connAccount, err := grpc.Dial("127.0.0.1:50055", opts...)
-	if err != nil {
-		panic(err)
+	// Disable transport security is intentional
+	deadline := 5
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(deadline)*time.Second)
+	defer cancel()
+	connAccount, dialError := grpc.DialContext(ctx, accountPath, opts...)
+	if dialError != nil {
+		panic(dialError)
 	}
 	accountClient := account.NewAccountServiceClient(connAccount)
 	fs.account = accountClient
 
-	connParticipant, err := grpc.Dial("127.0.0.1:50055", opts...)
-	if err != nil {
-		panic(err)
+	ctx, cancel = context.WithTimeout(context.Background(), time.Duration(deadline)*time.Second)
+	defer cancel()
+	connParticipant, dialError := grpc.DialContext(ctx, participantPath, opts...)
+	if dialError != nil {
+		panic(dialError)
 	}
 	participantClient := participant.NewParticipantServiceClient(connParticipant)
 	fs.participant = participantClient
 
-	connOrganizer, err := grpc.Dial("127.0.0.1:50055", opts...)
-	if err != nil {
-		panic(err)
+	ctx, cancel = context.WithTimeout(context.Background(), time.Duration(deadline)*time.Second)
+	defer cancel()
+	connOrganizer, dialError := grpc.DialContext(ctx, organizerPart, opts...)
+	if dialError != nil {
+		panic(dialError)
 	}
 	organizerClient := organizer.NewOrganizationServiceClient(connOrganizer)
 	fs.organizer = organizerClient
