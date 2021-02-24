@@ -94,13 +94,12 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 
 	isPermission := <-havingPermissionChannel
 	isTimeOverlap := <-overlapTimeChannel
+	isEventOwner := <-eventOwnerChannel
 
 	close(errorChannel)
 	for err := range errorChannel {
 		return false, err
 	}
-
-	isEventOwner := <-eventOwnerChannel
 
 	close(havingPermissionChannel)
 	close(eventOwnerChannel)
