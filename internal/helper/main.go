@@ -8,6 +8,9 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 )
 
+// DayDifferenceFunc is type for DayDifference function
+type DayDifferenceFunc func(start time.Time, end time.Time) int
+
 // DayDifference is a function to find day difference in time
 func DayDifference(start time.Time, end time.Time) int {
 	var isStartAfterEnd bool

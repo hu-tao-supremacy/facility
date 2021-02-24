@@ -25,7 +25,8 @@ import (
 
 // DataService is for handling data layer
 type DataService struct {
-	SQL *sqlx.DB
+	SQL    *sqlx.DB
+	Helper Helper
 }
 
 const queryForRequestFacilityWithFacilty = `
@@ -59,7 +60,7 @@ func (dbs *DataService) GetFacilityList(organizationID int64) ([]*common.Facilit
 	}
 	result := make([]*common.Facility, len(facilities))
 	for i, item := range facilities {
-		value, err := convertFacilityModelToProto(item)
+		value, err := dbs.Helper.convertFacilityModelToProto(item)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +86,7 @@ func (dbs *DataService) GetAvailableFacilityList() ([]*common.Facility, typing.C
 
 	result := make([]*common.Facility, len(facilities))
 	for i, item := range facilities {
-		value, err := convertFacilityModelToProto(item)
+		value, err := dbs.Helper.convertFacilityModelToProto(item)
 		if err != nil {
 			return nil, err
 		}
@@ -117,7 +118,7 @@ func (dbs *DataService) GetFacilityInfo(facilityID int64) (*common.Facility, typ
 			StatusCode: codes.Internal,
 		}
 	default:
-		return convertFacilityModelToProto(&_facility)
+		return dbs.Helper.convertFacilityModelToProto(&_facility)
 	}
 }
 
@@ -224,7 +225,7 @@ func (dbs *DataService) IsOverlapTime(facilityID int64, start *timestamppb.Times
 	startTime, _ := ptypes.Timestamp(start)
 	finishTime, _ := ptypes.Timestamp(finish)
 	if checkTimeIntegrity {
-		inputError := checkDateInput(startTime, finishTime, facility.OperatingHours)
+		inputError := dbs.Helper.checkDateInput(startTime, finishTime, facility.OperatingHours)
 		if inputError != nil {
 			return false, inputError
 		}
@@ -274,7 +275,7 @@ func (dbs *DataService) GetFacilityRequestStatusFull(requestID int64) (*facility
 			StatusCode: codes.Internal,
 		}
 	default:
-		return convertFacilityRequestWithInfoModelToProto(&facilityRequest)
+		return dbs.Helper.convertFacilityRequestWithInfoModelToProto(&facilityRequest)
 	}
 }
 
@@ -302,7 +303,7 @@ func (dbs *DataService) GetFacilityRequest(requestID int64) (*common.FacilityReq
 			StatusCode: codes.Internal,
 		}
 	default:
-		return convertFacilityRequestModelToProto(&facilityRequest), nil
+		return dbs.Helper.convertFacilityRequestModelToProto(&facilityRequest), nil
 	}
 }
 
@@ -319,7 +320,7 @@ func (dbs *DataService) getFacilityRequestWithFacilityInfoList(condition string,
 	}
 	result := make([]*facility.FacilityRequestWithFacilityInfo, len(facilities))
 	for i, item := range facilities {
-		value, err := convertFacilityRequestWithInfoModelToProto(item)
+		value, err := dbs.Helper.convertFacilityRequestWithInfoModelToProto(item)
 		if err != nil {
 			return nil, err
 		}
@@ -362,7 +363,7 @@ func (dbs *DataService) GetApprovedFacilityRequestList(facilityID int64, start *
 	}
 	result := make([]*common.FacilityRequest, len(facilitieRequests))
 	for i, item := range facilitieRequests {
-		value := convertFacilityRequestModelToProto(item)
+		value := dbs.Helper.convertFacilityRequestModelToProto(item)
 		result[i] = value
 	}
 

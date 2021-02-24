@@ -20,6 +20,7 @@ import (
 	organizer "onepass.app/facility/hts/organizer"
 	participant "onepass.app/facility/hts/participant"
 	database "onepass.app/facility/internal/database"
+	"onepass.app/facility/internal/helper"
 	typing "onepass.app/facility/internal/typing"
 
 	_ "github.com/lib/pq"
@@ -287,7 +288,10 @@ func main() {
 
 	facilityServer := &FacilityServer{}
 
-	db := &database.DataService{}
+	// inject helper function
+	hp := database.Helper{DayDifference: helper.DayDifference, Convert: database.ConvertOperatingHoursModelToProto}
+	db := &database.DataService{Helper: hp}
+
 	db.ConnectToDB()
 	facilityServer.dbs = db
 
