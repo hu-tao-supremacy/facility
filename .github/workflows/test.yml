@@ -24,6 +24,7 @@ jobs:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
       uses: actions/checkout@v2
+    - run: make apis
     - name: Run tests
       run: go test -v -covermode=count ./internal/helper/main_test.go
 
