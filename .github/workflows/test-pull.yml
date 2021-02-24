@@ -4,7 +4,7 @@ on:
       - dev
       - main
 
-name: run tests
+name: tests pull requests
 jobs:
   test:
     strategy:
