@@ -1,6 +1,7 @@
 # Facility Service
 [![Go Report Card](https://goreportcard.com/badge/github.com/hu-tao-supremacy/facility)](https://goreportcard.com/report/github.com/hu-tao-supremacy/facility)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Test](https://github.com/hu-tao-supremacy/facility/actions/workflows/test.yml/badge.svg)
 
 1. Setting up PostgreSQL for dev environment
 ```
@@ -38,6 +39,20 @@ go build -o main ./cmd/*.go
 2. Execute binary file
 ```
 ./main
+```
+
+## Testing
+- Coverage
+```
+go test  -cover  $(go list ./... | grep -v hts) -coverprofile=coverage.out
+```
+- View test coverage in terminal
+```
+go tool cover -func=coverage.out
+```
+- View test coverage in html format
+```
+go tool cover -html=coverage.out -o coverage.html
 ```
 
 ## WSL2 guide

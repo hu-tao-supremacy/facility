@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         go-version: [1.15.x]
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     steps:
     - name: Install Go
@@ -26,7 +26,19 @@ jobs:
       uses: actions/checkout@v2
     - run: make apis
     - name: Run tests
-      run: go test -v -covermode=count ./internal/helper/main_test.go
+      run:  go test  -v -covermode=count -coverprofile=coverage.out $(go list ./... | grep -v hts) 
+    - name: Save coverage report
+      run:  echo "COVERAGE=$(go tool cover -func coverage.out | grep total | awk '{print $3}')" >> $GITHUB_ENV
+    - name: Create Awesome Badge
+      uses: schneegans/dynamic-badges-action@v1.0.0
+      with:
+        auth: ${{ secrets.GIST_SECRET }}
+        gistID: 4c5f04edd09de877e2792257f7c98bba
+        filename: badge.json
+        label: coverage
+        message: ${{ env.COVERAGE }}
+        color: green
+        # labelColor:
 
   # coverage:
   #   runs-on: ubuntu-latest
@@ -40,7 +52,7 @@ jobs:
   #     uses: actions/checkout@v2
   #   - name: Calc coverage
   #     run: |
-  #       go test -v -covermode=count -coverprofile=coverage.out
+  #       go test  -v -covermode=count -coverprofile=coverage.out $(go list ./... | grep -v hts) 
   #   - name: Convert coverage.out to coverage.lcov
   #     uses: jandelgado/gcov2lcov-action@v1.0.6
   #   - name: Coveralls
