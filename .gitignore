@@ -392,6 +392,7 @@ htmlcov/
 .coverage.*
 nosetests.xml
 coverage.xml
+coverage.html
 *.cover
 *.py,cover
 .hypothesis/

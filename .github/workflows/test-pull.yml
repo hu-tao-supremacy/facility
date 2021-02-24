@@ -1,0 +1,26 @@
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+
+name: tests pull requests
+jobs:
+  test:
+    strategy:
+      matrix:
+        go-version: [1.15.x]
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+    - name: Install Go
+      if: success()
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - run: make apis
+    - name: Run tests
+      run:  go test $(go list ./... | grep -v hts) 
+
