@@ -17,32 +17,31 @@ func TestConvertOperatingHoursModelToProto(t *testing.T) { // -
 	assert := assert.New(t)
 
 	data := []byte(`[{"day": "MON", "start_hour": 10, "finish_hour": 19}]`)
-	Source := (*types.JSONText)(&data)
+	operatingHour1 := (*types.JSONText)(&data)
 	expected := []*common.OperatingHour{{Day: common.DayOfWeek_MON, StartHour: 10, FinishHour: 19}}
-	operatingHoursProto, err := ConvertOperatingHoursModelToProto(*Source)
+	operatingHoursProto, err := ConvertOperatingHoursModelToProto(*operatingHour1)
 	assert.Nil(err)
 	assert.Equal(1, len(operatingHoursProto))
 	assert.Equal(expected[0], operatingHoursProto[0])
 
 	data = []byte(`[{"day":error "MON", "start_hour": 10, "finish_hour": 19}]`)
-	Source = (*types.JSONText)(&data)
-	expected = []*common.OperatingHour{{Day: common.DayOfWeek_MON, StartHour: 10, FinishHour: 19}}
-	operatingHoursProto, err = ConvertOperatingHoursModelToProto(*Source)
+	operatingHour2 := (*types.JSONText)(&data)
+	operatingHoursProto, err = ConvertOperatingHoursModelToProto(*operatingHour2)
 	assert.NotNil(err)
 
 	data = []byte(`[{"day": "MON", "start_hour": 10, "finish_hour": 19}, {"day": "SAT", "start_hour": 2, "finish_hour": 9}]`)
-	Source = (*types.JSONText)(&data)
+	operatingHour3 := (*types.JSONText)(&data)
 	expected = []*common.OperatingHour{{Day: common.DayOfWeek_MON, StartHour: 10, FinishHour: 19}, {Day: common.DayOfWeek_SAT, StartHour: 2, FinishHour: 9}}
-	operatingHoursProto, err = ConvertOperatingHoursModelToProto(*Source)
+	operatingHoursProto, err = ConvertOperatingHoursModelToProto(*operatingHour3)
 	assert.Nil(err)
 	assert.Equal(2, len(operatingHoursProto))
 	assert.Equal(expected[0], operatingHoursProto[0])
 	assert.Equal(expected[1], operatingHoursProto[1])
 
 	data = []byte(`[]`)
-	Source = (*types.JSONText)(&data)
+	operatingHour4 := (*types.JSONText)(&data)
 	expected = []*common.OperatingHour{{Day: common.DayOfWeek_MON, StartHour: 10, FinishHour: 19}, {Day: common.DayOfWeek_SAT, StartHour: 2, FinishHour: 9}}
-	operatingHoursProto, err = ConvertOperatingHoursModelToProto(*Source)
+	operatingHoursProto, err = ConvertOperatingHoursModelToProto(*operatingHour4)
 	assert.Nil(err)
 	assert.Equal(0, len(operatingHoursProto))
 }
