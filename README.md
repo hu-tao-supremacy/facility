@@ -27,7 +27,7 @@ code .
 ```
 6. Run
 ```
-go run ./cmd/*.go
+go run ./cmd/!(*_test).go
 ```
 
 ## Build binary file
