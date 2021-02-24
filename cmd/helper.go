@@ -1,33 +1,59 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	_ "github.com/lib/pq"
+	account "onepass.app/facility/hts/account"
 	common "onepass.app/facility/hts/common"
 	facility "onepass.app/facility/hts/facility"
+	organizer "onepass.app/facility/hts/organizer"
+	participant "onepass.app/facility/hts/participant"
 	"onepass.app/facility/internal/helper"
 	typing "onepass.app/facility/internal/typing"
 )
 
 // hasPermission is mock function for account.hasPermission
-func hasPermission(userID int64, organizationID int64, permissionName common.Permission) bool {
-	// time.Sleep(1 * time.Second)
-	return true
+func hasPermission(accountClient account.AccountServiceClient, userID int64, organizationID int64, permissionName common.Permission) (bool, typing.CustomError) {
+	in := account.HasPermissionRequest{
+		OrganizationId: organizationID,
+		UserId:         userID,
+		PermissionName: permissionName,
+	}
+	result, err := accountClient.HasPermission(context.Background(), &in)
+	if err != nil {
+		return false, &typing.PermissionError{Type: permissionName}
+	}
+	return result.IsOk, nil
 }
 
 // hasEvent is mock function for organization.hasEvent
-func hasEvent(userID int64, permissionName int64, eventID int64) bool {
-	// time.Sleep(1 * time.Second)
-	return true
+func hasEvent(oragnizationClient organizer.OrganizationServiceClient, organizationID int64, userID int64, eventID int64) (bool, typing.CustomError) {
+	in := organizer.HasEventReq{
+		OrganizationId: organizationID,
+		UserId:         userID,
+		EventId:        eventID,
+	}
+	result, err := oragnizationClient.HasEvent(context.Background(), &in)
+	if err != nil {
+		return false, &typing.NotFoundError{Name: "The organization doesn't own event"}
+	}
+	return result.IsOk, nil
 }
 
 // getEvent is mock function for Participant.getEvent
-func getEvent(eventID int64) common.Event {
-	// time.Sleep(1 * time.Second)
-	return common.Event{}
+func getEvent(participantClient participant.ParticipantServiceClient, eventID int64) (*common.Event, typing.CustomError) {
+	in := participant.GetEventRequest{
+		EventId: eventID,
+	}
+	result, err := participantClient.GetEvent(context.Background(), &in)
+	if err != nil {
+		return nil, &typing.NotFoundError{Name: "The organization doesn't own event"}
+	}
+	return result, nil
 }
 
 // isAbleToCreateFacilityRequest is function to check if a facility is able to book according to user psermission
@@ -43,18 +69,37 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 		overlapTimeChannel <- isTimeOverlap
 	}()
 
-	event := getEvent(in.EventId)
+	event, err := getEvent(fs.participant, in.EventId)
+	if err != nil {
+		return false, err
+	}
 	go func() {
-		havingPermissionChannel <- hasPermission(in.UserId, event.OrganizationId, common.Permission_UPDATE_EVENT)
+		result, err := hasPermission(fs.account, in.UserId, event.OrganizationId, common.Permission_UPDATE_EVENT)
+		if err != nil {
+			errorChannel <- err
+			havingPermissionChannel <- false
+			return
+		}
+		havingPermissionChannel <- result
 	}()
 	go func() {
-		eventOwnerChannel <- hasEvent(in.UserId, event.OrganizationId, in.EventId)
+		result, err := hasEvent(fs.organizer, in.UserId, event.OrganizationId, in.EventId)
+		if err != nil {
+			errorChannel <- err
+			eventOwnerChannel <- false
+			return
+		}
+		eventOwnerChannel <- result
 	}()
 
 	isPermission := <-havingPermissionChannel
-	isEventOwner := <-eventOwnerChannel
-	overlapError := <-errorChannel
 	isTimeOverlap := <-overlapTimeChannel
+	isEventOwner := <-eventOwnerChannel
+
+	close(errorChannel)
+	for err := range errorChannel {
+		return false, err
+	}
 
 	close(havingPermissionChannel)
 	close(eventOwnerChannel)
@@ -63,10 +108,6 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 
 	if !(isPermission && isEventOwner) {
 		return false, &typing.PermissionError{Type: common.Permission_UPDATE_EVENT}
-	}
-
-	if overlapError != nil {
-		return false, overlapError
 	}
 
 	if isTimeOverlap {
@@ -91,10 +132,17 @@ func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFaci
 		facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
 		if err != nil {
 			errorChannel <- err
+			havingPermissionChannel <- false
 			return
 		}
 
-		havingPermissionChannel <- hasPermission(in.UserId, facility.OrganizationId, common.Permission_UPDATE_FACILITY)
+		result, err := hasPermission(fs.account, in.UserId, facility.OrganizationId, common.Permission_UPDATE_FACILITY)
+		if err != nil {
+			errorChannel <- err
+			havingPermissionChannel <- false
+			return
+		}
+		havingPermissionChannel <- result
 	}()
 
 	go func() {
@@ -141,7 +189,7 @@ func isAbleToRejectFacilityRequest(fs *FacilityServer, in *facility.RejectFacili
 		return false, err
 	}
 
-	isPermission := hasPermission(in.UserId, facility.OrganizationId, common.Permission_UPDATE_FACILITY)
+	isPermission, err := hasPermission(fs.account, in.UserId, facility.OrganizationId, common.Permission_UPDATE_FACILITY)
 	if err != nil {
 		return false, err
 	}
@@ -184,32 +232,80 @@ func isAbleToViewFacilityRequest(fs *FacilityServer, userID int64, facilityReque
 
 	permissionEventChannel := make(chan bool)
 	permissionFacilityChannel := make(chan bool)
+	errorChannel := make(chan typing.CustomError)
 
 	go func() {
-		event := getEvent(facilityRequest.EventId)
-		permissionEventChannel <- hasPermission(userID, event.OrganizationId, common.Permission_UPDATE_EVENT)
+		event, err := getEvent(fs.participant, facilityRequest.EventId)
+		if err != nil {
+			errorChannel <- err
+			permissionEventChannel <- false
+			return
+		}
+		result, err := hasPermission(fs.account, userID, event.OrganizationId, common.Permission_UPDATE_EVENT)
+		if err != nil {
+			errorChannel <- err
+			permissionEventChannel <- false
+			return
+		}
+		permissionEventChannel <- result
 	}()
 	go func() {
-		permissionFacilityChannel <- hasPermission(userID, facility.OrganizationId, common.Permission_UPDATE_FACILITY)
+		result, err := hasPermission(fs.account, userID, facility.OrganizationId, common.Permission_UPDATE_FACILITY)
+		if err != nil {
+			errorChannel <- err
+			permissionFacilityChannel <- false
+			return
+		}
+		permissionFacilityChannel <- result
 	}()
 
-	return handlePermissionChannel(permissionEventChannel, permissionFacilityChannel)
+	result, permission, err := handlePermissionChannel(permissionEventChannel, permissionFacilityChannel)
+
+	close(errorChannel)
+	for err := range errorChannel {
+		return false, 0, err
+	}
+
+	return result, permission, err
 }
 
 // isAbleToViewFacilityRequestFull a function to check whether user can view the targed facility request
 func isAbleToViewFacilityRequestFull(fs *FacilityServer, userID int64, facilityRequestFull *facility.FacilityRequestWithFacilityInfo) (bool, common.Permission, typing.CustomError) {
-	event := getEvent(facilityRequestFull.EventId)
+	event, err := getEvent(fs.participant, facilityRequestFull.EventId)
+	for err != nil {
+		return false, 0, err
+	}
 	permissionEventChannel := make(chan bool)
 	permissionFacilityChannel := make(chan bool)
+	errorChannel := make(chan typing.CustomError)
 
 	go func() {
-		permissionEventChannel <- hasPermission(userID, event.OrganizationId, common.Permission_UPDATE_EVENT)
+		result, err := hasPermission(fs.account, userID, event.OrganizationId, common.Permission_UPDATE_EVENT)
+		if err != nil {
+			errorChannel <- err
+			permissionEventChannel <- false
+			return
+		}
+		permissionEventChannel <- result
 	}()
 	go func() {
-		permissionFacilityChannel <- hasPermission(userID, facilityRequestFull.OrganizationId, common.Permission_UPDATE_FACILITY)
+		result, err := hasPermission(fs.account, userID, facilityRequestFull.OrganizationId, common.Permission_UPDATE_FACILITY)
+		if err != nil {
+			errorChannel <- err
+			permissionFacilityChannel <- false
+			return
+		}
+		permissionFacilityChannel <- result
 	}()
 
-	return handlePermissionChannel(permissionEventChannel, permissionFacilityChannel)
+	result, permission, err := handlePermissionChannel(permissionEventChannel, permissionFacilityChannel)
+
+	close(errorChannel)
+	for err := range errorChannel {
+		return false, 0, err
+	}
+
+	return result, permission, err
 }
 
 // isAbleToGetAvailableTimeOfFacility a function to check whether user can check facility availability
