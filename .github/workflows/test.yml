@@ -37,7 +37,7 @@ jobs:
         filename: badge.json
         label: coverage
         message: ${{ env.COVERAGE }}
-        color: green
+        color: red
         # labelColor:
 
   # coverage:
