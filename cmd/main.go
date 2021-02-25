@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	empty "github.com/golang/protobuf/ptypes/empty"
+	"github.com/stretchr/testify/mock"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -22,6 +23,7 @@ import (
 	database "onepass.app/facility/internal/database"
 	"onepass.app/facility/internal/helper"
 	typing "onepass.app/facility/internal/typing"
+	mocks "onepass.app/facility/mocks"
 
 	_ "github.com/lib/pq"
 )
@@ -295,10 +297,33 @@ func (fs *FacilityServer) connectToGRPCClients() {
 	fs.organizer = organizerClient
 }
 
+func (fs *FacilityServer) connectToMockGRPCClients() {
+	mockAccount := &mocks.AccountServiceClient{}
+	mockAccount.On("Ping", mock.Anything, mock.Anything).Return(&common.Result{IsOk: true}, nil)
+	mockAccount.On("HasPermission", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&common.Result{IsOk: true}, nil)
+	fs.account = mockAccount
+
+	mockOrganizer := &mocks.OrganizationServiceClient{}
+	mockOrganizer.On("Ping", mock.Anything, mock.Anything).Return(&common.Result{IsOk: true}, nil)
+	mockAccount.On("HasPermission", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&common.Result{IsOk: true}, nil)
+	fs.organizer = mockOrganizer
+
+	mockParticipant := &mocks.ParticipantServiceClient{}
+	mockParticipant.On("HasEvent", mock.Anything, mock.Anything).Return(true, nil)
+	mockParticipant.On("GetEvent", mock.Anything, mock.Anything).Return(&common.Event{}, nil)
+	fs.participant = mockParticipant
+}
+
 func injectDependencies(facilityServer *FacilityServer) {
 	hp := database.Helper{DayDifference: helper.DayDifference, Convert: database.ConvertOperatingHoursModelToProto}
 	db := &database.DataService{Helper: hp}
 	facilityServer.dbs = db
+
+	if os.Getenv("NODE_ENV") == "development" {
+		facilityServer.connectToMockGRPCClients()
+	} else {
+		facilityServer.connectToGRPCClients()
+	}
 }
 
 func main() {
@@ -314,7 +339,6 @@ func main() {
 
 	facilityServer.dbs.ConnectToDB()
 
-	facilityServer.connectToGRPCClients()
 	facility.RegisterFacilityServiceServer(s, facilityServer)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
