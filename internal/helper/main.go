@@ -1,7 +1,6 @@
 package helper
 
 import (
-	"log"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -20,7 +19,6 @@ func DayDifference(start time.Time, end time.Time) int {
 	}
 
 	days := -start.YearDay()
-	log.Println("start day", days)
 	for year := start.Year(); year < end.Year(); year++ {
 		days += time.Date(year, time.December, 31, 0, 0, 0, 0, time.UTC).YearDay()
 	}

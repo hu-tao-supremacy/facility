@@ -18,99 +18,64 @@ func TestDayDifference(t *testing.T) {
 
 	const layoutISO = "2006-01-02"
 
-	date := "1999-12-31"
-	mockStart, _ = time.Parse(layoutISO, date)
-	date = "2000-01-01"
-	mockEnd, _ = time.Parse(layoutISO, date)
-	diff1 = DayDifference(mockStart, mockEnd)
-	assert.Equal(1, diff1, "DayDifference should be one")
+	var tests = []struct {
+		start    string
+		end      string
+		expected int
+	}{
+		{"1999-12-31", "2000-01-01", 1},
+		{"2000-01-01", "1999-12-31", -1},
+		{"1999-12-31", "1999-12-25", -6},
+		{"2000-12-31", "2003-10-25", 1028},
+		{"2003-10-25", "2000-12-31", -1028},
+		{"2000-12-30", "2020-12-31", 7306},
+		{"2020-12-31", "2000-12-30", -7306},
+	}
 
-	date = "2000-01-01"
-	mockStart, _ = time.Parse(layoutISO, date)
-	date = "1999-12-31"
-	mockEnd, _ = time.Parse(layoutISO, date)
-	diff1 = DayDifference(mockStart, mockEnd)
-	assert.Equal(-1, diff1, "DayDifference should be minus one")
-
-	date = "1999-12-31"
-	mockStart, _ = time.Parse(layoutISO, date)
-	date = "1999-12-25"
-	mockEnd, _ = time.Parse(layoutISO, date)
-	diff1 = DayDifference(mockStart, mockEnd)
-	assert.Equal(-6, diff1, "DayDifference should be minus six")
-
-	date = "2000-12-31"
-	mockStart, _ = time.Parse(layoutISO, date)
-	date = "2003-10-25"
-	mockEnd, _ = time.Parse(layoutISO, date)
-	diff1 = DayDifference(mockStart, mockEnd)
-	assert.Equal(1028, diff1)
-
-	date = "2003-10-25"
-	mockStart, _ = time.Parse(layoutISO, date)
-	date = "2000-12-31"
-	mockEnd, _ = time.Parse(layoutISO, date)
-	diff1 = DayDifference(mockStart, mockEnd)
-	assert.Equal(-1028, diff1)
-
-	date = "2000-12-30"
-	mockStart, _ = time.Parse(layoutISO, date)
-	date = "2020-12-31"
-	mockEnd, _ = time.Parse(layoutISO, date)
-	diff1 = DayDifference(mockStart, mockEnd)
-	assert.Equal(7306, diff1)
-
-	date = "2020-12-31"
-	mockStart, _ = time.Parse(layoutISO, date)
-	date = "2000-12-30"
-	mockEnd, _ = time.Parse(layoutISO, date)
-	diff1 = DayDifference(mockStart, mockEnd)
-	assert.Equal(-7306, diff1)
+	for _, test := range tests {
+		mockStart, _ = time.Parse(layoutISO, test.start)
+		mockEnd, _ = time.Parse(layoutISO, test.end)
+		diff1 = DayDifference(mockStart, mockEnd)
+		assert.Equal(test.expected, diff1)
+	}
 
 	layout2 := "Mon Jan 02 15:04:05 2006"
-	date = "Mon Jan 02 23:54:05 2006"
-	mockStart, _ = time.Parse(layout2, date)
-	date = "Mon Jan 02 05:04:05 2006"
-	mockEnd, _ = time.Parse(layout2, date)
-	diff1 = DayDifference(mockStart, mockEnd)
-	assert.Equal(0, diff1)
 
-	date = "Mon Jan 02 23:59:59 2006"
-	mockStart, _ = time.Parse(layout2, date)
-	date = "Mon Jan 03 00:00:00 2006"
-	mockEnd, _ = time.Parse(layout2, date)
-	diff1 = DayDifference(mockStart, mockEnd)
-	assert.Equal(1, diff1)
+	var tests2 = []struct {
+		start    string
+		end      string
+		expected int
+	}{
+		{"Mon Jan 02 23:54:05 2006", "Mon Jan 02 05:04:05 2006", 0},
+		{"Mon Jan 02 23:59:59 2006", "Mon Jan 03 00:00:00 2006", 1},
+		{"Mon Jan 03 00:00:00 2006", "Mon Jan 02 23:59:59 2006", -1},
+	}
 
-	date = "Mon Jan 03 00:00:00 2006"
-	mockStart, _ = time.Parse(layout2, date)
-	date = "Mon Jan 02 23:59:59 2006"
-	mockEnd, _ = time.Parse(layout2, date)
-	diff1 = DayDifference(mockStart, mockEnd)
-	assert.Equal(-1, diff1)
-
+	for _, test := range tests2 {
+		mockStart, _ = time.Parse(layout2, test.start)
+		mockEnd, _ = time.Parse(layout2, test.end)
+		diff1 = DayDifference(mockStart, mockEnd)
+		assert.Equal(test.expected, diff1)
+	}
 }
 
 func TestTimeStampToText(t *testing.T) {
 	assert := assert.New(t)
 
-	timeStamp := timestamp.Timestamp{Seconds: 1614177990}
-	layout := "2006-01-02"
-	text := TimeStampToText(&timeStamp, layout)
-	assert.Equal(text, "2021-02-24", "timestamp should be correct")
+	var tests = []struct {
+		input    int64
+		layout   string
+		expected string
+	}{
+		{1614177990, "2006-01-02", "2021-02-24"},
+		{16141779904, "2006-01-02", "2481-07-06"},
+		{16141779904, "2006-01-02 15:04:05", "2481-07-06 03:45:04"},
+		{0, "2006-01-02 15:04:05", "1970-01-01 00:00:00"},
+	}
 
-	timeStamp = timestamp.Timestamp{Seconds: 16141779904}
-	layout = "2006-01-02"
-	text = TimeStampToText(&timeStamp, layout)
-	assert.Equal(text, "2481-07-06", "timestamp should be correct")
-
-	timeStamp = timestamp.Timestamp{Seconds: 16141779904}
-	layout = "2006-01-02 15:04:05"
-	text = TimeStampToText(&timeStamp, layout)
-	assert.Equal(text, "2481-07-06 03:45:04", "timestamp should be correct")
-
-	timeStamp = timestamp.Timestamp{Seconds: 0}
-	layout = "2006-01-02 15:04:05"
-	text = TimeStampToText(&timeStamp, layout)
-	assert.Equal(text, "1970-01-01 00:00:00", "timestamp should be correct")
+	for _, test := range tests {
+		timeStamp := timestamp.Timestamp{Seconds: test.input}
+		text := TimeStampToText(&timeStamp, test.layout)
+		assert.Equal(test.expected, text, "timestamp should be correct")
+	}
 }
