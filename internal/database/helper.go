@@ -16,7 +16,8 @@ import (
 	typing "onepass.app/facility/internal/typing"
 )
 
-func convertOperatingHoursModelToProto(operatingHours types.JSONText) ([]*common.OperatingHour, typing.CustomError) {
+// ConvertOperatingHoursModelToProto is fuction to convert operationHours to proto
+func ConvertOperatingHoursModelToProto(operatingHours types.JSONText) ([]*common.OperatingHour, typing.CustomError) {
 	var message []*model.OperatingHour
 
 	if err := json.Unmarshal(operatingHours, &message); err != nil {
@@ -34,8 +35,17 @@ func convertOperatingHoursModelToProto(operatingHours types.JSONText) ([]*common
 	return result, nil
 }
 
-func convertFacilityModelToProto(data *model.Facility) (*common.Facility, typing.CustomError) {
-	OperatingHours, err := convertOperatingHoursModelToProto(data.OperatingHours)
+// OperatingHoursModelToProto type of function to inject to helper
+type OperatingHoursModelToProto func(operatingHours types.JSONText) ([]*common.OperatingHour, typing.CustomError)
+
+// Helper is struct to inject function that can m=be mock
+type Helper struct {
+	Convert       OperatingHoursModelToProto
+	DayDifference helper.DayDifferenceFunc
+}
+
+func (dbHelper *Helper) convertFacilityModelToProto(data *model.Facility) (*common.Facility, typing.CustomError) {
+	OperatingHours, err := dbHelper.Convert(data.OperatingHours)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +61,7 @@ func convertFacilityModelToProto(data *model.Facility) (*common.Facility, typing
 	}, nil
 }
 
-func convertFacilityRequestModelToProto(data *model.FacilityRequest) *common.FacilityRequest {
+func (dbHelper *Helper) convertFacilityRequestModelToProto(data *model.FacilityRequest) *common.FacilityRequest {
 	var rejectReason *wrappers.StringValue
 	if data.RejectReason.Valid {
 		rejectReason = &wrappers.StringValue{Value: data.RejectReason.String}
@@ -67,13 +77,13 @@ func convertFacilityRequestModelToProto(data *model.FacilityRequest) *common.Fac
 	}
 }
 
-func convertFacilityRequestWithInfoModelToProto(data *model.FacilityRequestWithInfo) (*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
+func (dbHelper *Helper) convertFacilityRequestWithInfoModelToProto(data *model.FacilityRequestWithInfo) (*facility.FacilityRequestWithFacilityInfo, typing.CustomError) {
 	var rejectReason *wrappers.StringValue
 	if data.RejectReason.Valid {
 		rejectReason = &wrappers.StringValue{Value: data.RejectReason.String}
 	}
 
-	OperatingHours, err := convertOperatingHoursModelToProto(data.OperatingHours)
+	OperatingHours, err := dbHelper.Convert(data.OperatingHours)
 	if err != nil {
 		return nil, err
 	}
@@ -95,13 +105,13 @@ func convertFacilityRequestWithInfoModelToProto(data *model.FacilityRequestWithI
 	}, nil
 }
 
-func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
-	if helper.DayDifference(start, finish) != 0 {
+func (dbHelper *Helper) checkDateInput(start time.Time, finish time.Time, operatingHours []*common.OperatingHour) typing.CustomError {
+	if dbHelper.DayDifference(start, finish) != 0 {
 		return &typing.InputError{Name: "Start and Finish must be the same day"}
 	}
 
 	now := time.Now()
-	dayDifferenceFromNow := helper.DayDifference(now, start)
+	dayDifferenceFromNow := dbHelper.DayDifference(now, start)
 	if dayDifferenceFromNow >= 30 {
 		return &typing.InputError{Name: "Booking date can only be within 30 days period from today"}
 	}
@@ -112,7 +122,7 @@ func checkDateInput(start time.Time, finish time.Time, operatingHours []*common.
 	if dayDifferenceFromNow < 0 || (dayDifferenceFromNow == 0 && HourStart < now.Hour()) {
 		return &typing.InputError{Name: "Booking time must not be in the past"}
 	}
-	if MinuteStart != 0 || secondStart != 0 || MinuteFinish != 0 || secondFinish != 0 {
+	if (MinuteStart + secondStart + MinuteFinish + secondFinish) != 0 {
 		return &typing.InputError{Name: "Minutes and seconds must be 0"}
 	}
 
