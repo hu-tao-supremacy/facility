@@ -240,6 +240,11 @@ func (fs *FacilityServer) GetAvailableTimeOfFacility(ctx context.Context, in *fa
 	return generateFacilityAvailabilityResult(emptyResultArray, startTime, operatingHours, facility.Requests), nil
 }
 
+// Ping is a function to check is service running
+func (fs *FacilityServer) Ping(context.Context, *empty.Empty) (*common.Result, error) {
+	return &common.Result{IsOk: true}, nil
+}
+
 func (fs *FacilityServer) connectToGRPCClients() {
 	accountPath := os.Getenv("HTS_SVC_ACCOUNT")
 	participantPath := os.Getenv("HTS_SVC_PARTICIPANT")
@@ -257,6 +262,10 @@ func (fs *FacilityServer) connectToGRPCClients() {
 		panic(dialError)
 	}
 	accountClient := account.NewAccountServiceClient(connAccount)
+	_, err := accountClient.Ping(context.Background(), &empty.Empty{})
+	if err != nil {
+		panic(err)
+	}
 	fs.account = accountClient
 
 	ctx, cancel = context.WithTimeout(context.Background(), timeout)
@@ -266,6 +275,10 @@ func (fs *FacilityServer) connectToGRPCClients() {
 		panic(dialError)
 	}
 	participantClient := participant.NewParticipantServiceClient(connParticipant)
+	_, err = participantClient.Ping(context.Background(), &empty.Empty{})
+	if err != nil {
+		panic(err)
+	}
 	fs.participant = participantClient
 
 	ctx, cancel = context.WithTimeout(context.Background(), timeout)
@@ -275,6 +288,10 @@ func (fs *FacilityServer) connectToGRPCClients() {
 		panic(dialError)
 	}
 	organizerClient := organizer.NewOrganizationServiceClient(connOrganizer)
+	_, err = organizerClient.Ping(context.Background(), &empty.Empty{})
+	if err != nil {
+		panic(err)
+	}
 	fs.organizer = organizerClient
 }
 
