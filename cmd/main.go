@@ -295,6 +295,12 @@ func (fs *FacilityServer) connectToGRPCClients() {
 	fs.organizer = organizerClient
 }
 
+func injectDependencies(facilityServer *FacilityServer) {
+	hp := database.Helper{DayDifference: helper.DayDifference, Convert: database.ConvertOperatingHoursModelToProto}
+	db := &database.DataService{Helper: hp}
+	facilityServer.dbs = db
+}
+
 func main() {
 	port := os.Getenv("GRPC_PORT")
 	lis, err := net.Listen("tcp", ":"+port)
@@ -304,13 +310,9 @@ func main() {
 	s := grpc.NewServer()
 
 	facilityServer := &FacilityServer{}
+	injectDependencies(facilityServer)
 
-	// inject helper function
-	hp := database.Helper{DayDifference: helper.DayDifference, Convert: database.ConvertOperatingHoursModelToProto}
-	db := &database.DataService{Helper: hp}
-
-	db.ConnectToDB()
-	facilityServer.dbs = db
+	facilityServer.dbs.ConnectToDB()
 
 	facilityServer.connectToGRPCClients()
 	facility.RegisterFacilityServiceServer(s, facilityServer)
