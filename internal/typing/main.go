@@ -61,3 +61,13 @@ func (e *InputError) Error() string { return "input error: " + e.Name }
 
 // Code is for getting code
 func (e *InputError) Code() codes.Code { return codes.InvalidArgument }
+
+// GRPCError is error for grpc client error
+type GRPCError struct {
+	Name string
+}
+
+func (e *GRPCError) Error() string { return "service error: " + e.Name }
+
+// Code is for getting code
+func (e *GRPCError) Code() codes.Code { return codes.Unavailable }

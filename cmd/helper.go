@@ -25,7 +25,7 @@ func hasPermission(accountClient account.AccountServiceClient, userID int64, org
 	}
 	result, err := accountClient.HasPermission(context.Background(), &in)
 	if err != nil {
-		return false, &typing.PermissionError{Type: permissionName}
+		return false, &typing.GRPCError{Name: "Account service"}
 	}
 	return result.IsOk, nil
 }
@@ -39,7 +39,7 @@ func hasEvent(oragnizationClient organizer.OrganizationServiceClient, organizati
 	}
 	result, err := oragnizationClient.HasEvent(context.Background(), &in)
 	if err != nil {
-		return false, &typing.NotFoundError{Name: "The organization doesn't own event"}
+		return false, &typing.GRPCError{Name: "Organization service"}
 	}
 	return result.IsOk, nil
 }
@@ -51,7 +51,7 @@ func getEvent(participantClient participant.ParticipantServiceClient, eventID in
 	}
 	result, err := participantClient.GetEvent(context.Background(), &in)
 	if err != nil {
-		return nil, &typing.NotFoundError{Name: "The organization doesn't own event"}
+		return nil, &typing.GRPCError{Name: "Participant service"}
 	}
 	return result, nil
 }
