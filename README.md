@@ -79,9 +79,8 @@ go tool cover -html=coverage.out -o coverage.html
 ```
 
 - Integration testing
-  - run go with dev env (mocked all grpc services)
   - spawn database with testing seed
-  - run go in terminal
+  - run go main with dev env (mocked all grpc services)
   - run test command in other terminal with dev env
   ```
   source dev-env

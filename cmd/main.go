@@ -305,12 +305,17 @@ func (fs *FacilityServer) connectToMockGRPCClients() {
 
 	mockOrganizer := &mocks.OrganizationServiceClient{}
 	mockOrganizer.On("Ping", mock.Anything, mock.Anything).Return(&common.Result{IsOk: true}, nil)
-	mockAccount.On("HasPermission", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&common.Result{IsOk: true}, nil)
+	mockOrganizer.On("HasEvent", mock.Anything, mock.Anything).Return(&common.Result{IsOk: true}, nil)
 	fs.organizer = mockOrganizer
 
 	mockParticipant := &mocks.ParticipantServiceClient{}
-	mockParticipant.On("HasEvent", mock.Anything, mock.Anything).Return(true, nil)
-	mockParticipant.On("GetEvent", mock.Anything, mock.Anything).Return(&common.Event{}, nil)
+	mockParticipant.On("Ping", mock.Anything, mock.Anything).Return(&common.Result{IsOk: true}, nil)
+	mockParticipant.On("GetEvent", mock.Anything, mock.Anything).Return(&common.Event{
+		Id:             1,
+		OrganizationId: 1,
+		Description:    "sdf",
+		Name:           "string",
+		Contact:        "ssdfsdf"}, nil)
 	fs.participant = mockParticipant
 }
 

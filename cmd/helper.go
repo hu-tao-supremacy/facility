@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -61,11 +62,15 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	havingPermissionChannel := make(chan bool)
 	eventOwnerChannel := make(chan bool)
 	overlapTimeChannel := make(chan bool)
-	errorChannel := make(chan typing.CustomError)
+	errorChannel := make(chan typing.CustomError, 4)
 
 	go func() {
 		isTimeOverlap, err := fs.dbs.IsOverlapTime(in.FacilityId, in.Start, in.End, true)
-		errorChannel <- err
+		if err != nil {
+			errorChannel <- err
+			overlapTimeChannel <- true
+			return
+		}
 		overlapTimeChannel <- isTimeOverlap
 	}()
 
@@ -91,7 +96,6 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 		}
 		eventOwnerChannel <- result
 	}()
-
 	isPermission := <-havingPermissionChannel
 	isTimeOverlap := <-overlapTimeChannel
 	isEventOwner := <-eventOwnerChannel
@@ -100,6 +104,8 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	for err := range errorChannel {
 		return false, err
 	}
+
+	log.Println("is able 2")
 
 	close(havingPermissionChannel)
 	close(eventOwnerChannel)
@@ -113,7 +119,7 @@ func isAbleToCreateFacilityRequest(fs *FacilityServer, in *facility.CreateFacili
 	if isTimeOverlap {
 		return false, &typing.AlreadyExistError{Name: "Facility is booked at that time"}
 	}
-
+	log.Println("is able")
 	return true, nil
 }
 
@@ -126,7 +132,7 @@ func isAbleToApproveFacilityRequest(fs *FacilityServer, in *facility.ApproveFaci
 
 	havingPermissionChannel := make(chan bool)
 	overlapTimeChannel := make(chan bool)
-	errorChannel := make(chan typing.CustomError, 2)
+	errorChannel := make(chan typing.CustomError, 3)
 
 	go func() {
 		facility, err := fs.dbs.GetFacilityInfo(facilityRequest.FacilityId)
@@ -232,7 +238,7 @@ func isAbleToViewFacilityRequest(fs *FacilityServer, userID int64, facilityReque
 
 	permissionEventChannel := make(chan bool)
 	permissionFacilityChannel := make(chan bool)
-	errorChannel := make(chan typing.CustomError)
+	errorChannel := make(chan typing.CustomError, 3)
 
 	go func() {
 		event, err := getEvent(fs.participant, facilityRequest.EventId)
@@ -277,7 +283,7 @@ func isAbleToViewFacilityRequestFull(fs *FacilityServer, userID int64, facilityR
 	}
 	permissionEventChannel := make(chan bool)
 	permissionFacilityChannel := make(chan bool)
-	errorChannel := make(chan typing.CustomError)
+	errorChannel := make(chan typing.CustomError, 2)
 
 	go func() {
 		result, err := hasPermission(fs.account, userID, event.OrganizationId, common.Permission_UPDATE_EVENT)
