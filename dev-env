@@ -1,0 +1,10 @@
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+export POSTGRES_USER=hu-tao-mains
+export POSTGRES_PASSWORD=hu-tao-mains
+export POSTGRES_DB=hts
+export GRPC_HOST=localhost
+export GRPC_PORT=50051
+export HTS_SVC_ACCOUNT=localhost:50055
+export HTS_SVC_PARTICIPANT=
+export HTS_SVC_ORGANIZER=

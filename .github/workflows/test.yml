@@ -1,0 +1,36 @@
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+name: tests
+jobs:
+  test:
+    strategy:
+      matrix:
+        go-version: [1.15.x]
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Install Go
+        if: success()
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - run: make apis
+      - name: Run tests
+        run: go test  -v -covermode=count -coverprofile=coverage.out $(go list ./... | grep -v hts)
+      - name: Save coverage report
+        run: echo "COVERAGE=$(go tool cover -func coverage.out | grep total | awk '{print $3}')" >> $GITHUB_ENV
+      - name: Create Awesome Badge
+        uses: schneegans/dynamic-badges-action@v1.0.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: 4c5f04edd09de877e2792257f7c98bba
+          filename: badge.json
+          label: coverage
+          message: ${{ env.COVERAGE }} and increasing
+          color: red

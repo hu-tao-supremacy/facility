@@ -210,7 +210,8 @@ hs_err_pid*
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*
@@ -391,6 +392,7 @@ htmlcov/
 .coverage.*
 nosetests.xml
 coverage.xml
+coverage.html
 *.cover
 *.py,cover
 .hypothesis/
@@ -525,3 +527,4 @@ $RECYCLE.BIN/
 /apis
 apis/
 hts/
+hts
